@@ -1,4 +1,11 @@
 # accountableguv
+
+AWS infrastructure can be deployed directly through the AWS console using the
+[feeds staging stack](aws_iac/cloud-formation-templates/feeds_staging/README.md) and
+[MTS lakehouse stack](aws_iac/cloud-formation-templates/mts_lakehouse/README.md).
+The lakehouse stack creates an S3 table bucket and Glue job to load the staged MTS
+reports, plus an Athena workgroup and S3 storage for query results.
+
 Source Repo for accountable govt. site. This is essentially my hobby project that allows me to 
 apply software and cloud skills that I don't get to apply at my day-to-day job as technology manager.
 

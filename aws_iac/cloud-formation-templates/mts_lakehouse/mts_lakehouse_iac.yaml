@@ -1,0 +1,341 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: MTS S3 table bucket, Glue ingestion job, and Athena workgroup with query result storage.
+
+Parameters:
+  FeedsBucketName:
+    Type: String
+    Default: ''
+    Description: Existing source bucket. Empty uses acctguv-feeds-<this region>.
+    AllowedPattern: '^$|[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]'
+  TableBucketName:
+    Type: String
+    Default: acctguv-mts
+    Description: New S3 table bucket name; choose a different name for each environment.
+    AllowedPattern: '[a-z0-9][a-z0-9-]{1,61}[a-z0-9]'
+  MtsNamespace:
+    Type: String
+    Default: silver_mts
+    AllowedPattern: '[a-z][a-z0-9_]{0,254}'
+  GlueScriptBucketName:
+    Type: String
+    Description: Existing same-region S3 bucket containing the Glue Python script (SSE-S3).
+    AllowedPattern: '[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]'
+  GlueScriptObjectKey:
+    Type: String
+    Description: Uploaded mts_to_tables.py key; use a versioned or content-addressed key.
+    AllowedPattern: '[A-Za-z0-9!_./()=-]+\.py'
+  WorkerCount:
+    Type: Number
+    Default: 2
+    AllowedValues: [2, 3, 4, 5, 6, 7, 8, 9, 10]
+  AthenaQueryScanLimitBytes:
+    Type: Number
+    Default: 1073741824
+    MinValue: 10000000
+    MaxValue: 2147483647
+    Description: Per-query scan cutoff in bytes (default 1 GiB); cancelled queries still incur scan charges.
+
+Conditions:
+  UseDefaultFeedsBucket: !Equals [!Ref FeedsBucketName, '']
+
+Resources:
+  AthenaResultsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      LifecycleConfiguration:
+        Rules:
+          - Id: AbortIncompleteUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+      Tags:
+        - Key: Project
+          Value: accountableguv-mts
+
+  AthenaResultsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Bucket: !Ref AthenaResultsBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: RequireTLS
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt AthenaResultsBucket.Arn
+              - !Sub '${AthenaResultsBucket.Arn}/*'
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+
+  MtsAthenaWorkGroup:
+    Type: AWS::Athena::WorkGroup
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    DependsOn: AthenaResultsBucketPolicy
+    Properties:
+      Name: !Sub '${TableBucketName}-queries'
+      Description: SQL analysis of MTS tables with encrypted results in a dedicated S3 bucket.
+      State: ENABLED
+      RecursiveDeleteOption: false
+      WorkGroupConfiguration:
+        EngineVersion:
+          SelectedEngineVersion: Athena engine version 3
+        EnforceWorkGroupConfiguration: true
+        PublishCloudWatchMetricsEnabled: true
+        BytesScannedCutoffPerQuery: !Ref AthenaQueryScanLimitBytes
+        ResultConfiguration:
+          OutputLocation: !Sub 's3://${AthenaResultsBucket}/queries/'
+          ExpectedBucketOwner: !Ref AWS::AccountId
+          EncryptionConfiguration:
+            EncryptionOption: SSE_S3
+      Tags:
+        - Key: Project
+          Value: accountableguv-mts
+
+  MtsAthenaQueryPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Attach to an analyst identity for MTS queries and result access; catalog integration is required.
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: RunMtsQueries
+            Effect: Allow
+            Action:
+              - athena:GetWorkGroup
+              - athena:StartQueryExecution
+              - athena:StopQueryExecution
+              - athena:GetQueryExecution
+              - athena:BatchGetQueryExecution
+              - athena:GetQueryResults
+              - athena:GetQueryResultsStream
+              - athena:ListQueryExecutions
+            Resource: !Sub 'arn:${AWS::Partition}:athena:${AWS::Region}:${AWS::AccountId}:workgroup/${MtsAthenaWorkGroup}'
+          - Sid: DiscoverAthenaConsoleResources
+            Effect: Allow
+            Action: [athena:ListWorkGroups, athena:ListDataCatalogs]
+            Resource: '*'
+          - Sid: ReadAthenaCatalogMetadata
+            Effect: Allow
+            Action: [athena:GetDataCatalog, athena:GetDatabase, athena:ListDatabases, athena:GetTableMetadata, athena:ListTableMetadata]
+            Resource: !Sub 'arn:${AWS::Partition}:athena:${AWS::Region}:${AWS::AccountId}:datacatalog/*'
+          - Sid: LocateQueryResults
+            Effect: Allow
+            Action: [s3:GetBucketLocation, s3:ListBucket, s3:ListBucketMultipartUploads]
+            Resource: !GetAtt AthenaResultsBucket.Arn
+          - Sid: ReadWriteQueryResults
+            Effect: Allow
+            Action: [s3:GetObject, s3:PutObject, s3:AbortMultipartUpload, s3:ListMultipartUploadParts]
+            Resource: !Sub '${AthenaResultsBucket.Arn}/queries/*'
+          - Sid: ReadMtsCatalog
+            Effect: Allow
+            Action: [glue:GetCatalog, glue:GetCatalogs, glue:GetDatabase, glue:GetDatabases, glue:GetTable, glue:GetTables, glue:GetTableVersion, glue:GetTableVersions]
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog'
+              - !Sub 'arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog/s3tablescatalog'
+              - !Sub 'arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:catalog/s3tablescatalog/${TableBucketName}'
+              - !Sub 'arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:database/s3tablescatalog/${TableBucketName}/${MtsNamespace}'
+              - !Sub 'arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:table/s3tablescatalog/${TableBucketName}/${MtsNamespace}/*'
+          - Sid: DiscoverMtsBucket
+            Effect: Allow
+            Action: [s3tables:GetTableBucket, s3tables:ListNamespaces]
+            Resource: !GetAtt MtsTableBucket.TableBucketARN
+          - Sid: DiscoverMtsNamespace
+            Effect: Allow
+            Action: [s3tables:GetNamespace, s3tables:ListTables]
+            Resource: !GetAtt MtsTableBucket.TableBucketARN
+            Condition:
+              StringEquals:
+                s3tables:namespace: !Ref MtsNamespace
+          - Sid: ReadMtsTables
+            Effect: Allow
+            Action: [s3tables:GetTable, s3tables:GetTableMetadataLocation, s3tables:GetTableData]
+            Resource: !Sub '${MtsTableBucket.TableBucketARN}/table/*'
+            Condition:
+              StringEquals:
+                s3tables:namespace: !Ref MtsNamespace
+
+  MtsTableBucket:
+    Type: AWS::S3Tables::TableBucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableBucketName: !Ref TableBucketName
+      EncryptionConfiguration:
+        SSEAlgorithm: AES256
+      Tags:
+        - Key: Project
+          Value: accountableguv-mts
+
+  MtsTableNamespace:
+    Type: AWS::S3Tables::Namespace
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Namespace: !Ref MtsNamespace
+      TableBucketARN: !GetAtt MtsTableBucket.TableBucketARN
+
+  GlueErrorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws-glue/${AWS::StackName}/mts/error'
+      RetentionInDays: 30
+
+  GlueOutputLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws-glue/${AWS::StackName}/mts/output'
+      RetentionInDays: 30
+
+  MtsGlueRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: MtsIngestion
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ReadMtsSources
+                Effect: Allow
+                Action: [s3:GetObject, s3:GetObjectVersion]
+                Resource: !If
+                  - UseDefaultFeedsBucket
+                  - !Sub 'arn:${AWS::Partition}:s3:::acctguv-feeds-${AWS::Region}/mts/*'
+                  - !Sub 'arn:${AWS::Partition}:s3:::${FeedsBucketName}/mts/*'
+              - Sid: ReadJobScript
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub 'arn:${AWS::Partition}:s3:::${GlueScriptBucketName}/${GlueScriptObjectKey}'
+              - Sid: DiscoverTableBucket
+                Effect: Allow
+                Action: [s3tables:GetTableBucket, s3tables:ListNamespaces]
+                Resource: !GetAtt MtsTableBucket.TableBucketARN
+              - Sid: CreateMtsTables
+                Effect: Allow
+                Action: [s3tables:GetNamespace, s3tables:ListTables, s3tables:CreateTable]
+                Resource: !GetAtt MtsTableBucket.TableBucketARN
+                Condition:
+                  StringEquals:
+                    s3tables:namespace: !Ref MtsNamespace
+              - Sid: ReadWriteMtsTables
+                Effect: Allow
+                Action:
+                  - s3tables:GetTable
+                  - s3tables:GetTableMetadataLocation
+                  - s3tables:UpdateTableMetadataLocation
+                  - s3tables:GetTableData
+                  - s3tables:PutTableData
+                Resource: !Sub '${MtsTableBucket.TableBucketARN}/table/*'
+                Condition:
+                  StringEquals:
+                    s3tables:namespace: !Ref MtsNamespace
+              - Sid: WriteJobLogs
+                Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource:
+                  - !GetAtt GlueErrorLogGroup.Arn
+                  - !GetAtt GlueOutputLogGroup.Arn
+              - Sid: PublishGlueMetrics
+                Effect: Allow
+                Action: cloudwatch:PutMetricData
+                Resource: '*'
+                Condition:
+                  StringEquals:
+                    cloudwatch:namespace: Glue
+
+  MtsGlueJob:
+    Type: AWS::Glue::Job
+    DependsOn: MtsTableNamespace
+    Properties:
+      Name: !Sub '${AWS::StackName}-mts-load'
+      Description: Validate one MTS manifest and replace that report date in nine Iceberg tables.
+      Role: !GetAtt MtsGlueRole.Arn
+      GlueVersion: '5.0'
+      JobMode: SCRIPT
+      Command:
+        Name: glueetl
+        PythonVersion: '3'
+        ScriptLocation: !Sub 's3://${GlueScriptBucketName}/${GlueScriptObjectKey}'
+      WorkerType: G.1X
+      NumberOfWorkers: !Ref WorkerCount
+      Timeout: 30
+      MaxRetries: 0
+      ExecutionProperty:
+        MaxConcurrentRuns: 1
+      DefaultArguments:
+        '--manifest_key': REQUIRED
+        '--enable-metrics': 'true'
+        '--job-language': python
+      NonOverridableArguments:
+        '--feeds_bucket': !If
+          - UseDefaultFeedsBucket
+          - !Sub 'acctguv-feeds-${AWS::Region}'
+          - !Ref FeedsBucketName
+        '--table_bucket_arn': !GetAtt MtsTableBucket.TableBucketARN
+        '--namespace': !Ref MtsNamespace
+        '--region': !Ref AWS::Region
+        '--rest_endpoint': !Sub 'https://s3tables.${AWS::Region}.${AWS::URLSuffix}/iceberg'
+        '--datalake-formats': iceberg
+        '--job-bookmark-option': job-bookmark-disable
+        '--custom-logGroup-prefix': !Sub '/aws-glue/${AWS::StackName}/mts'
+        '--conf': >-
+          spark.sql.extensions=org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
+          --conf spark.sql.session.timeZone=UTC
+      Tags:
+        Project: accountableguv-mts
+
+Outputs:
+  AthenaWorkGroupName:
+    Value: !Ref MtsAthenaWorkGroup
+  AthenaResultsBucketName:
+    Value: !Ref AthenaResultsBucket
+  AthenaResultsLocation:
+    Value: !Sub 's3://${AthenaResultsBucket}/queries/'
+  AthenaQueryPolicyArn:
+    Description: Attach to your querying IAM user, group, or role; not attached automatically.
+    Value: !Ref MtsAthenaQueryPolicy
+  AthenaTableCatalog:
+    Description: Catalog available after enabling S3 Tables integration with Glue Data Catalog.
+    Value: !Sub 's3tablescatalog/${TableBucketName}'
+  TableBucketName:
+    Value: !Ref MtsTableBucket
+  TableBucketArn:
+    Value: !GetAtt MtsTableBucket.TableBucketARN
+  Namespace:
+    Value: !Ref MtsTableNamespace
+  GlueJobName:
+    Value: !Ref MtsGlueJob
+  GlueRoleArn:
+    Value: !GetAtt MtsGlueRole.Arn
+  SourceBucketName:
+    Value: !If [UseDefaultFeedsBucket, !Sub 'acctguv-feeds-${AWS::Region}', !Ref FeedsBucketName]
+  ErrorLogGroup:
+    Value: !Ref GlueErrorLogGroup
+  OutputLogGroup:
+    Value: !Ref GlueOutputLogGroup

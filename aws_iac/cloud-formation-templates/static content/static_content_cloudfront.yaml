@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Serve an existing private S3 static-content bucket through CloudFront OAC.
+
+Parameters:
+  StaticContentBucketName:
+    Type: String
+    Description: Existing bucket in this account and stack region; enter its actual S3 name (no spaces).
+    MinLength: 3
+    MaxLength: 63
+    AllowedPattern: '^[a-z0-9][a-z0-9.-]*[a-z0-9]$'
+  DefaultRootObject:
+    Type: String
+    Default: home.html
+    Description: Object key served at the website root, without a leading slash.
+    MinLength: 1
+    AllowedPattern: '^[^/].*$'
+
+Resources:
+  StaticContentOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${AWS::StackName}-s3-oac'
+        Description: Signed read access to the private static-content origin.
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  StaticContentCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: !Sub '${AWS::StackName}-static-content'
+        MinTTL: 0
+        DefaultTTL: 3600
+        MaxTTL: 31536000
+        ParametersInCacheKeyAndForwardedToOrigin:
+          EnableAcceptEncodingGzip: true
+          EnableAcceptEncodingBrotli: true
+          CookiesConfig:
+            CookieBehavior: none
+          HeadersConfig:
+            HeaderBehavior: none
+          QueryStringsConfig:
+            QueryStringBehavior: none
+
+  StaticContentDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: !Sub 'Private S3 static content for ${AWS::StackName}'
+        Enabled: true
+        IPV6Enabled: true
+        HttpVersion: http2and3
+        DefaultRootObject: !Ref DefaultRootObject
+        Origins:
+          - Id: StaticContentS3Origin
+            DomainName: !Sub '${StaticContentBucketName}.s3.${AWS::Region}.${AWS::URLSuffix}'
+            OriginAccessControlId: !Ref StaticContentOriginAccessControl
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+        DefaultCacheBehavior:
+          TargetOriginId: StaticContentS3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          CachePolicyId: !Ref StaticContentCachePolicy
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+
+  StaticContentBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StaticContentBucketName
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowThisCloudFrontDistributionReadOnly
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub 'arn:${AWS::Partition}:s3:::${StaticContentBucketName}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${StaticContentDistribution}'
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - !Sub 'arn:${AWS::Partition}:s3:::${StaticContentBucketName}'
+              - !Sub 'arn:${AWS::Partition}:s3:::${StaticContentBucketName}/*'
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+
+Outputs:
+  DistributionId:
+    Description: Distribution ID for cache invalidations.
+    Value: !Ref StaticContentDistribution
+  DistributionArn:
+    Description: Distribution ARN for any required KMS key policy.
+    Value: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${StaticContentDistribution}'
+  WebsiteUrl:
+    Description: Public HTTPS website served from the private S3 origin.
+    Value: !Sub 'https://${StaticContentDistribution.DomainName}'

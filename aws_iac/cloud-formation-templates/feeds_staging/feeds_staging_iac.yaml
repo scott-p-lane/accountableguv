@@ -1,0 +1,219 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Shared staging feeds bucket and monthly Treasury MTS JSON ingestion.
+
+Parameters:
+  MtsCodeBucketName:
+    Type: String
+    MinLength: 3
+    MaxLength: 63
+    Description: Existing S3 bucket in this region containing the packaged MTS Lambda ZIP.
+  MtsCodeObjectKey:
+    Type: String
+    MinLength: 1
+    Description: Object key printed by package_lambda.py; upload the ZIP to this key before deployment.
+  MtsCodeObjectVersion:
+    Type: String
+    Default: ''
+    Description: Optional S3 object version ID of the uploaded ZIP (leave blank to use its current version).
+  DeveloperGroupName:
+    Type: String
+    Description: Name of an existing IAM group in this account (not an ARN or path).
+    Default: developer
+    AllowedPattern: '[A-Za-z0-9_+=,.@-]+'
+    MinLength: 1
+    MaxLength: 128
+  MtsScheduleExpression:
+    Type: String
+    Default: cron(0 18 20 * ? *)
+    Description: Monthly UTC schedule (default 18:00 UTC on the 20th, after the normal MTS release).
+  MtsScheduleState:
+    Type: String
+    Default: ENABLED
+    AllowedValues: [ENABLED, DISABLED]
+    Description: Enable or disable automatic MTS downloads.
+
+Conditions:
+  HasMtsCodeObjectVersion: !Not [!Equals [!Ref MtsCodeObjectVersion, '']]
+
+Resources:
+  FeedsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub 'acctguv-feeds-${AWS::Region}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      LifecycleConfiguration:
+        Rules:
+          - Id: TierCurrentAndPreviousVersions
+            Status: Enabled
+            Transitions:
+              - StorageClass: STANDARD_IA
+                TransitionInDays: 30
+            NoncurrentVersionTransitions:
+              - StorageClass: STANDARD_IA
+                TransitionInDays: 30
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 90
+          - Id: AbortIncompleteUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+      Tags:
+        - Key: Project
+          Value: accountableguv
+        - Key: Name
+          Value: feeds
+
+  FeedsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FeedsBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt FeedsBucket.Arn
+              - !Sub '${FeedsBucket.Arn}/*'
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+
+  DeveloperFeedsReadPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub '${FeedsBucket}-developer-read'
+      Groups:
+        - !Ref DeveloperGroupName
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ListFeeds
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+              - s3:ListBucketVersions
+              - s3:GetBucketLocation
+            Resource: !GetAtt FeedsBucket.Arn
+          - Sid: ReadFeeds
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:GetObjectVersion
+            Resource: !Sub '${FeedsBucket.Arn}/*'
+
+  MtsDownloadRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: MtsDownload
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt FeedsBucket.Arn
+                Condition:
+                  StringLike:
+                    s3:prefix: 'mts/*'
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject]
+                Resource: !Sub '${FeedsBucket.Arn}/mts/*'
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-mts-download:*'
+
+  MtsDownloadLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-mts-download'
+      RetentionInDays: 30
+
+  MtsDownloadFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: MtsDownloadLogGroup
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-mts-download'
+      Description: Download all nine MTS JSON tables using their report month as the S3 prefix.
+      Runtime: python3.13
+      Handler: mts_feeds_monthly_download.lambda_handler
+      Role: !GetAtt MtsDownloadRole.Arn
+      Timeout: 300
+      MemorySize: 512
+      Environment:
+        Variables:
+          STAGING_BUCKET_NAME: !Ref FeedsBucket
+      Code:
+        S3Bucket: !Ref MtsCodeBucketName
+        S3Key: !Ref MtsCodeObjectKey
+        S3ObjectVersion: !If [HasMtsCodeObjectVersion, !Ref MtsCodeObjectVersion, !Ref 'AWS::NoValue']
+
+  MtsDownloadAsyncConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    Properties:
+      FunctionName: !Ref MtsDownloadFunction
+      Qualifier: '$LATEST'
+      MaximumEventAgeInSeconds: 21600
+      MaximumRetryAttempts: 2
+
+  MtsMonthlyRule:
+    Type: AWS::Events::Rule
+    DependsOn: MtsMonthlyInvokePermission
+    Properties:
+      Name: !Sub '${AWS::StackName}-mts-monthly'
+      Description: Download the latest published Monthly Treasury Statement.
+      ScheduleExpression: !Ref MtsScheduleExpression
+      State: !Ref MtsScheduleState
+      Targets:
+        - Id: MtsDownload
+          Arn: !GetAtt MtsDownloadFunction.Arn
+          Input: '{}'
+          RetryPolicy:
+            MaximumEventAgeInSeconds: 86400
+            MaximumRetryAttempts: 3
+
+  MtsMonthlyInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref MtsDownloadFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub 'arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/${AWS::StackName}-mts-monthly'
+
+Outputs:
+  MtsDownloadFunctionName:
+    Description: Function to invoke manually with an empty JSON event.
+    Value: !Ref MtsDownloadFunction
+  MtsDownloadFunctionArn:
+    Value: !GetAtt MtsDownloadFunction.Arn
+  FeedsBucketName:
+    Description: Bucket name for feed uploads and Lambda environment variables.
+    Value: !Ref FeedsBucket
+  FeedsBucketArn:
+    Description: Bucket ARN for IAM policies and integration with other resources.
+    Value: !GetAtt FeedsBucket.Arn
