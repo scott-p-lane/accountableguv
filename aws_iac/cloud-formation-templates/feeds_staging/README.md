@@ -13,15 +13,16 @@ its ZIP in S3; it contains no inline Python. No CDK or bootstrap is required.
 
 1. Run `python package_lambda.py` from `aws_iac/lambda/mts_download`. Upload the
    generated ZIP to an existing S3 bucket in the target region at the printed
-   `MtsCodeObjectKey`. In the S3 console, open/create `lambda/mts-feeds-monthly-download/<sha256>/` and
-   upload the generated `mts_feeds_monthly_download.zip` file.
+   `MtsCodeObjectKey`. In the S3 console, open/create `lambda/` and
+   upload the generated `mts_feeds_monthly_download_vYYYYMMDD.zip` file.
+   `YYYYMMDD` is the latest packaged source file's last-modified date in the
+   packaging machine's local timezone.
 2. Open CloudFormation, choose **Create stack** with new resources, then choose
    **Upload a template file** and select `feeds_staging_iac.yaml`.
 3. Enter a stack name, such as `accountableguv-feeds`.
 4. Set `DeveloperGroupName` to an existing IAM group in this account. It defaults
    to `developer`; the template does not create the group or change membership.
-   Supply `MtsCodeBucketName` and `MtsCodeObjectKey` for the uploaded ZIP. Optionally
-   supply its object version ID in `MtsCodeObjectVersion`.
+   Supply `MtsCodeBucketName` and `MtsCodeObjectKey` for the uploaded ZIP.
 5. Review the configuration, acknowledge creation of IAM resources with custom
    names (CAPABILITY_NAMED_IAM), and submit the stack.
 6. Wait for `CREATE_COMPLETE`. The **Outputs** tab provides `FeedsBucketName` and
@@ -45,7 +46,9 @@ role, and read the uploaded code object. The code bucket must already exist; an
 already deployed staging bucket can be used, or a separate artifact bucket.
 
 For code changes, rebuild and upload the new ZIP and update `MtsCodeObjectKey`
-(or `MtsCodeObjectVersion`) in the stack. Keep old ZIPs available for rollback.
+in the stack. Each code deployment needs a new S3 key. Same-day builds reuse the
+same key; overwriting it alone does not trigger a CloudFormation code update.
+Keep old ZIPs available for rollback.
 Invoke the deployed function from the Lambda console with `{}`. To run the same
 Python logic locally, use `python mts_feeds_monthly_download.py` from
 `aws_iac/lambda/mts_download`. This writes to the project folder

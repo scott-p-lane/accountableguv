@@ -1,6 +1,7 @@
-from datetime import date
+from datetime import date, datetime
 import hashlib
 import json
+import os
 from pathlib import Path
 import unittest
 from unittest.mock import Mock, patch
@@ -156,7 +157,25 @@ class MtsDownloadTests(unittest.TestCase):
             self.assertEqual(repeated.read_bytes(), original)
             self.assertEqual(repeated_key, key)
             self.assertTrue(key.endswith(archive.name))
-            self.assertIn(hashlib.sha256(original).hexdigest(), key)
+            version = datetime.fromtimestamp(Path(handler.__file__).stat().st_mtime).strftime("%Y%m%d")
+            self.assertEqual(key, f"lambda/mts_feeds_monthly_download_v{version}.zip")
+
+    def test_package_version_uses_latest_packaged_file_modification_date(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name, modified in (("first.py", datetime(2025, 12, 31, 12)),
+                                   ("second.py", datetime(2026, 1, 2, 12)),
+                                   ("unpackaged.py", datetime(2026, 2, 3, 12))):
+                source = root / name
+                source.write_text("value = 1\n", encoding="utf-8")
+                os.utime(source, (modified.timestamp(), modified.timestamp()))
+            with patch.object(package_lambda, "HERE", root), \
+                 patch.object(package_lambda, "PACKAGE_FILES", ("second.py", "first.py")):
+                archive, key = package_lambda.package(root / "build")
+            self.assertEqual(archive.name, "mts_feeds_monthly_download_v20260102.zip")
+            self.assertEqual(key, "lambda/mts_feeds_monthly_download_v20260102.zip")
+            with ZipFile(archive) as zipped:
+                self.assertEqual(zipped.namelist(), ["second.py", "first.py"])
 
     def test_template_references_external_package(self):
         source = Path(handler.__file__).resolve()

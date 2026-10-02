@@ -1,31 +1,34 @@
-"""Create a reproducible ZIP and print its content-addressed S3 object key."""
+"""Create a reproducible ZIP and print its modification-date-versioned S3 key."""
 
 import argparse
-import hashlib
+from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 HERE = Path(__file__).resolve().parent
+PACKAGE_FILES = ("mts_feeds_monthly_download.py",)
 
 
 def package(output_dir):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    # Normalize line endings and ZIP metadata so unchanged code has the same hash.
-    source = (HERE / "mts_feeds_monthly_download.py").read_text(encoding="utf-8").encode("utf-8")
-    entry = ZipInfo("mts_feeds_monthly_download.py", date_time=(2020, 1, 1, 0, 0, 0))
-    entry.compress_type = ZIP_DEFLATED
-    entry.create_system = 3
-    entry.external_attr = 0o100644 << 16
+    sources = [HERE / name for name in PACKAGE_FILES]
+    # Use the latest packaged source modification date in the local timezone.
+    version = datetime.fromtimestamp(max(source.stat().st_mtime for source in sources)).strftime("%Y%m%d")
+    # Normalize line endings and ZIP metadata for reproducible archive contents.
     buffer = BytesIO()
     with ZipFile(buffer, "w") as zipped:
-        zipped.writestr(entry, source)
+        for source in sources:
+            entry = ZipInfo(source.relative_to(HERE).as_posix(), date_time=(2020, 1, 1, 0, 0, 0))
+            entry.compress_type = ZIP_DEFLATED
+            entry.create_system = 3
+            entry.external_attr = 0o100644 << 16
+            zipped.writestr(entry, source.read_text(encoding="utf-8").encode("utf-8"))
     data = buffer.getvalue()
-    digest = hashlib.sha256(data).hexdigest()
-    archive = output_dir / "mts_feeds_monthly_download.zip"
+    archive = output_dir / f"mts_feeds_monthly_download_v{version}.zip"
     archive.write_bytes(data)
-    return archive, f"lambda/mts-feeds-monthly-download/{digest}/mts_feeds_monthly_download.zip"
+    return archive, f"lambda/{archive.name}"
 
 
 def main():

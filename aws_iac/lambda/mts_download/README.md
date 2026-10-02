@@ -46,16 +46,19 @@ python package_lambda.py
 ```
 
 This prints the ZIP path and `MtsCodeObjectKey`, such as
-`lambda/mts-feeds-monthly-download/<sha256>/mts_feeds_monthly_download.zip`. The ZIP contains only `mts_feeds_monthly_download.py` at its root.
+`lambda/mts_feeds_monthly_download_vYYYYMMDD.zip`. The ZIP contains only `mts_feeds_monthly_download.py` at its root.
+The version is the latest filesystem last-modified date among the packaged source
+files, formatted as `YYYYMMDD` in the packaging machine's local timezone. It is
+not the build date or Git commit date.
 Upload it to an **existing** S3 bucket in the Lambda's region. In the S3 console,
-create/open the `lambda/mts-feeds-monthly-download/<sha256>/` folder and upload the generated `mts_feeds_monthly_download.zip`.
+create/open the `lambda/` folder and upload the generated `mts_feeds_monthly_download_vYYYYMMDD.zip`.
 You can use a deployment-artifact bucket, or the already-created staging bucket.
 For a new stack, the code bucket must already exist before creating the stack.
 
 Optional AWS CLI upload:
 
 ```powershell
-aws s3 cp ./build/mts_feeds_monthly_download.zip s3://YOUR_CODE_BUCKET/lambda/mts-feeds-monthly-download/REPLACE_WITH_HASH/mts_feeds_monthly_download.zip --profile dev --region us-east-1
+aws s3 cp ./build/mts_feeds_monthly_download_vYYYYMMDD.zip s3://YOUR_CODE_BUCKET/lambda/mts_feeds_monthly_download_vYYYYMMDD.zip --profile dev --region us-east-1
 ```
 
 When updating the existing stack in the CloudFormation console, upload
@@ -63,8 +66,6 @@ When updating the existing stack in the CloudFormation console, upload
 
 - `MtsCodeBucketName`: the bucket where you uploaded the ZIP.
 - `MtsCodeObjectKey`: the full key printed by the packaging helper.
-- `MtsCodeObjectVersion`: optional uploaded object version ID; leave blank to use
-  the current version of that unique key.
 
 The deployment identity/CloudFormation service role must be able to read the code
 object. For SSE-KMS-encrypted artifacts it also needs decrypt permission on that key.
@@ -165,10 +166,10 @@ the command's exit code. CloudWatch Logs contains details.
 
 ## Source changes and validation
 
-After editing `mts_feeds_monthly_download.py`, rerun `package_lambda.py`, upload the resulting ZIP,
-and update `MtsCodeObjectKey` in the existing stack. The key changes when the ZIP
-content changes, so CloudFormation detects a code update. Merely overwriting the
-same key without changing the template key or version does not trigger deployment.
+After editing `mts_feeds_monthly_download.py`, rerun `package_lambda.py`, upload
+the resulting ZIP, and update `MtsCodeObjectKey` in the existing stack.
+Each code deployment needs a new S3 key. Same-day builds reuse the same key;
+overwriting it alone does not trigger a CloudFormation code update.
 Keep previously deployed ZIPs available for stack rollback.
 
 Run unit tests from this directory:

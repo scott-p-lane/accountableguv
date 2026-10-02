@@ -11,10 +11,6 @@ Parameters:
     Type: String
     MinLength: 1
     Description: Object key printed by package_lambda.py; upload the ZIP to this key before deployment.
-  MtsCodeObjectVersion:
-    Type: String
-    Default: ''
-    Description: Optional S3 object version ID of the uploaded ZIP (leave blank to use its current version).
   DeveloperGroupName:
     Type: String
     Description: Name of an existing IAM group in this account (not an ARN or path).
@@ -31,9 +27,6 @@ Parameters:
     Default: ENABLED
     AllowedValues: [ENABLED, DISABLED]
     Description: Enable or disable automatic MTS downloads.
-
-Conditions:
-  HasMtsCodeObjectVersion: !Not [!Equals [!Ref MtsCodeObjectVersion, '']]
 
 Resources:
   FeedsBucket:
@@ -170,7 +163,6 @@ Resources:
       Code:
         S3Bucket: !Ref MtsCodeBucketName
         S3Key: !Ref MtsCodeObjectKey
-        S3ObjectVersion: !If [HasMtsCodeObjectVersion, !Ref MtsCodeObjectVersion, !Ref 'AWS::NoValue']
 
   MtsDownloadAsyncConfig:
     Type: AWS::Lambda::EventInvokeConfig
