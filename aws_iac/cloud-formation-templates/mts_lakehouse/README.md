@@ -38,6 +38,7 @@ account-wide Glue Data Catalog/Lake Formation integration.
    | `GlueScriptBucketName` | Bucket containing the uploaded Python file. |
    | `GlueScriptObjectKey` | Exact uploaded script key, without `s3://` or bucket name. |
    | `WorkerCount` | Defaults to two G.1X workers. |
+   | `GlueTimeoutMinutes` | Defaults to 30; increase for long backfills (maximum 1,440). |
    | `AthenaQueryScanLimitBytes` | Defaults to 1,073,741,824 bytes (1 GiB) scanned per query. |
 
 6. Acknowledge IAM resource creation (`CAPABILITY_IAM`), review the change set,
@@ -62,27 +63,51 @@ Do not create a second stack to manage an existing table bucket.
 The new scan-limit parameter has a default, so existing deployments do not need
 another uploaded Glue script or a new ingestion run just to add Athena.
 
-## Load a report
+## Load a report or a range of feeds
 
-In the Glue console, run the job with the job parameter:
+Supply `--base_prefix` to recursively discover all `manifest.json` objects under
+a source location in the configured feeds bucket:
 
-```text
---manifest_key = mts/2026/08/manifest.json
-```
+| Job parameter | Reports selected |
+| --- | --- |
+| `--base_prefix = mts/2025` | All available months in 2025. |
+| `--base_prefix = mts` | All available months across all years. |
+| `--base_prefix = mts/2025/01` | January 2025 only. |
 
-Replace the example with a report actually present in the source bucket. The
-default `REQUIRED` value deliberately fails instead of guessing the latest month.
-Optionally pass `--manifest_version_id` to read a particular manifest version.
-
-AWS CLI equivalent (substitute your stack's output):
+A trailing slash is optional. Use a bucket-relative prefix, not an `s3://` URI.
+The job follows every S3 listing page without a delimiter, selects manifests,
+and processes them in chronological key order using one Spark session. Other
+JSON files are ignored. No manifests found is an error. Manifests outside the
+expected `mts/YYYY/MM/manifest.json` layout fail validation rather than being
+silently skipped. Only existing months are loaded; gaps are not downloaded.
 
 ```powershell
-aws glue start-job-run --job-name accountableguv-mts-lakehouse-mts-load --arguments '{"--manifest_key":"mts/2026/08/manifest.json"}' --region us-east-1
+aws glue start-job-run --job-name accountableguv-mts-lakehouse-mts-load --arguments '{"--base_prefix":"mts/2025"}' --region us-east-1
 ```
 
-Only one run can execute at a time. There are no automatic retries, and each run
-has a 30-minute timeout. Backfill existing reports by running their manifests
-sequentially. This job does not download missing reports from Treasury.
+For prefix loading, update the existing stack with this template to grant the
+Glue role `s3:ListBucket` limited to `mts/*`, upload the revised script to a new
+immutable key, and update `GlueScriptObjectKey`. Set `GlueTimeoutMinutes` high
+enough for your backfill. The table bucket and existing tables stay in place.
+
+`--base_prefix` is required and is the only feed-selection parameter. The
+stack's `REQUIRED` placeholder fails until replaced with a valid prefix. For a
+single month, use a prefix such as `mts/2026/08`. Remove the old
+`--manifest_key` and `--manifest_version_id` arguments from saved run commands
+or overrides when updating. Manifest key/version columns remain in the tables
+as source lineage; they are not job parameters.
+
+Only one run can execute at a time. There are no automatic retries. The timeout
+defaults to 30 minutes and is configurable through `GlueTimeoutMinutes`. Each
+report is validated and written before reading the next, keeping driver memory
+bounded to one month's payloads. Discovery selects current manifest keys at the
+start, not a version-pinned snapshot of the entire source tree.
+
+On failure the job logs the failing manifest and stops. Earlier completed months
+remain loaded, and the failing month may be partially written. Rerun the same
+prefix or the failing month's prefix after resolving the error: per-period replacement
+prevents duplicates. Historical schema changes still require explicit schema
+review; prefix loading does not relax the existing source validation.
 
 ## Loading and correction behavior
 

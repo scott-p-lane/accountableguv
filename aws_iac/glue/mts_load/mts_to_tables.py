@@ -1,6 +1,6 @@
-"""Load one validated MTS report into S3 Tables using AWS Glue 5.0 / Iceberg.
+"""Load selected MTS reports into S3 Tables using AWS Glue 5.0 / Iceberg.
 
-All source validation runs before table writes. Each table's report date is
+Each report's source validation runs before its table writes. Each table's report date is
 replaced atomically; the nine tables are not a single transaction.
 """
 
@@ -100,11 +100,11 @@ def read_object(s3, bucket, key, version_id=None):
     return data, response.get("VersionId", "")
 
 
-def load_report(s3, bucket, manifest_key, manifest_version_id=None):
+def load_report(s3, bucket, manifest_key):
     """Return typed rows for all nine tables, or fail before any table writes."""
     if not re.fullmatch(r"mts/\d{4}/\d{2}/manifest\.json", manifest_key):
         raise ValueError("manifest_key must be mts/YYYY/MM/manifest.json")
-    raw_manifest, manifest_version = read_object(s3, bucket, manifest_key, manifest_version_id)
+    raw_manifest, manifest_version = read_object(s3, bucket, manifest_key)
     manifest = json.loads(raw_manifest)
     report_date = date.fromisoformat(manifest["report_date"])
     prefix = f"mts/{report_date:%Y/%m}/"
@@ -160,6 +160,40 @@ def table_columns(table):
             **LINEAGE_TYPES}
 
 
+def select_manifests(s3, bucket, base_prefix):
+    if not base_prefix:
+        raise ValueError("Supply --base_prefix")
+    prefix = base_prefix.rstrip("/")
+    if not re.fullmatch(r"mts(?:/\d{4}(?:/(?:0[1-9]|1[0-2]))?)?", prefix):
+        raise ValueError("base_prefix must be mts, mts/YYYY, or mts/YYYY/MM")
+    prefix += "/"  # Directory boundary prevents matching sibling prefixes.
+    keys = set()
+    # No Delimiter: S3 lists all descendants, across every paginated response.
+    for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix):
+        for item in page.get("Contents", []):
+            key = item["Key"]
+            if key.startswith(prefix) and key.endswith("/manifest.json"):
+                if not re.fullmatch(r"mts/\d{4}/(?:0[1-9]|1[0-2])/manifest\.json", key):
+                    raise ValueError(f"Unexpected MTS manifest location: {key}")
+                keys.add(key)
+    if not keys:
+        raise ValueError(f"No MTS manifests found under s3://{bucket}/{prefix}")
+    return sorted(keys)
+
+
+def load_manifests(s3, spark, bucket, namespace, keys):
+    for index, key in enumerate(keys, 1):
+        LOGGER.info("Loading manifest %s/%s: %s", index, len(keys), key)
+        try:
+            report_date, batch_id, loaded = load_report(s3, bucket, key)
+            write_report(spark, namespace, report_date, loaded)
+            LOGGER.info("Completed manifest=%s report_date=%s batch_id=%s", key, report_date, batch_id)
+            del loaded  # Keep only one month's source rows in memory.
+        except Exception:
+            LOGGER.exception("Failed manifest=%s; completed %s/%s reports", key, index - 1, len(keys))
+            raise
+
+
 def write_report(spark, namespace, report_date, loaded):
     from pyspark.sql import functions as functions
 
@@ -196,16 +230,12 @@ def main():
     from pyspark.sql import SparkSession
 
     names = ["JOB_NAME", "feeds_bucket", "table_bucket_arn", "namespace", "region",
-             "rest_endpoint", "manifest_key"]
+             "rest_endpoint", "base_prefix"]
     args = getResolvedOptions(sys.argv, names)
-    version_args = getResolvedOptions(sys.argv, ["manifest_version_id"]) if any(
-        arg == "--manifest_version_id" or arg.startswith("--manifest_version_id=")
-        for arg in sys.argv) else {}
     logging.basicConfig(level=logging.INFO)
     s3 = boto3.client("s3", region_name=args["region"])
-    report_date, batch_id, loaded = load_report(
-        s3, args["feeds_bucket"], args["manifest_key"], version_args.get("manifest_version_id"))
-    LOGGER.info("Validated report_date=%s batch_id=%s", report_date, batch_id)
+    keys = select_manifests(s3, args["feeds_bucket"], args["base_prefix"])
+    LOGGER.info("Selected %s manifests", len(keys))
     builder = SparkSession.builder.appName(args["JOB_NAME"])
     settings = {
         "spark.sql.catalog.s3tables": "org.apache.iceberg.spark.SparkCatalog",
@@ -223,8 +253,8 @@ def main():
         builder = builder.config(key, value)
     spark = builder.getOrCreate()
     try:
-        write_report(spark, args["namespace"], report_date, loaded)
-        LOGGER.info("Completed all nine tables report_date=%s batch_id=%s", report_date, batch_id)
+        load_manifests(s3, spark, args["feeds_bucket"], args["namespace"], keys)
+        LOGGER.info("Completed all %s reports", len(keys))
     finally:
         spark.stop()
 

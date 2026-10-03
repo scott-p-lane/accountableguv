@@ -34,6 +34,12 @@ Parameters:
     MinValue: 10000000
     MaxValue: 2147483647
     Description: Per-query scan cutoff in bytes (default 1 GiB); cancelled queries still incur scan charges.
+  GlueTimeoutMinutes:
+    Type: Number
+    Default: 30
+    MinValue: 1
+    MaxValue: 1440
+    Description: Glue run timeout in minutes; increase for multi-year backfills.
 
 Conditions:
   UseDefaultFeedsBucket: !Equals [!Ref FeedsBucketName, '']
@@ -221,6 +227,16 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
+              - Sid: DiscoverMtsManifests
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !If
+                  - UseDefaultFeedsBucket
+                  - !Sub 'arn:${AWS::Partition}:s3:::acctguv-feeds-${AWS::Region}'
+                  - !Sub 'arn:${AWS::Partition}:s3:::${FeedsBucketName}'
+                Condition:
+                  StringLike:
+                    s3:prefix: 'mts/*'
               - Sid: ReadMtsSources
                 Effect: Allow
                 Action: [s3:GetObject, s3:GetObjectVersion]
@@ -274,7 +290,7 @@ Resources:
     DependsOn: MtsTableNamespace
     Properties:
       Name: !Sub '${AWS::StackName}-mts-load'
-      Description: Validate one MTS manifest and replace that report date in nine Iceberg tables.
+      Description: Load all manifests beneath an MTS base prefix into nine Iceberg tables.
       Role: !GetAtt MtsGlueRole.Arn
       GlueVersion: '5.0'
       JobMode: SCRIPT
@@ -284,12 +300,12 @@ Resources:
         ScriptLocation: !Sub 's3://${GlueScriptBucketName}/${GlueScriptObjectKey}'
       WorkerType: G.1X
       NumberOfWorkers: !Ref WorkerCount
-      Timeout: 30
+      Timeout: !Ref GlueTimeoutMinutes
       MaxRetries: 0
       ExecutionProperty:
         MaxConcurrentRuns: 1
       DefaultArguments:
-        '--manifest_key': REQUIRED
+        '--base_prefix': REQUIRED
         '--enable-metrics': 'true'
         '--job-language': python
       NonOverridableArguments:

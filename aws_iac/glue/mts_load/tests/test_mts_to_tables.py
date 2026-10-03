@@ -48,8 +48,8 @@ class LoadTests(unittest.TestCase):
             item["sha256"] = hashlib.sha256(raw).hexdigest()
         self.s3.objects[self.key] = json.dumps(self.manifest).encode()
 
-    def load(self, version=None):
-        return loader.load_report(self.s3, "feeds", self.key, version)
+    def load(self):
+        return loader.load_report(self.s3, "feeds", self.key)
 
     def test_loads_nine_typed_tables_with_precision_and_lineage(self):
         report_date, batch_id, tables = self.load()
@@ -67,8 +67,8 @@ class LoadTests(unittest.TestCase):
     def test_version_ids_are_passed_when_available(self):
         self.manifest["files"][0]["version_id"] = "table-version"
         self.save()
-        self.load("manifest-version")
-        self.assertEqual(self.s3.requests[0]["VersionId"], "manifest-version")
+        self.load()
+        self.assertNotIn("VersionId", self.s3.requests[0])
         self.assertEqual(self.s3.requests[1]["VersionId"], "table-version")
 
     def test_hash_mismatch_rejects_replaced_source(self):
@@ -171,6 +171,79 @@ class LoadTests(unittest.TestCase):
             loader.write_report(spark, "silver_mts", report_date, loaded)
         for frame in frames:
             frame.coalesce.assert_not_called()
+
+
+class DiscoveryTests(unittest.TestCase):
+    def test_recursive_paginated_discovery_sorts_and_filters(self):
+        s3 = Mock()
+        s3.get_paginator.return_value.paginate.return_value = [
+            {"Contents": [{"Key": "mts/2026/01/manifest.json"},
+                          {"Key": "mts/2025/02/mts_table_1.json"}]},
+            {},
+            {"Contents": [{"Key": "mts/2025/01/manifest.json"},
+                          {"Key": "mts/2025/02/manifest.json"}]},
+        ]
+        self.assertEqual(loader.select_manifests(s3, "feeds", "mts"), [
+            "mts/2025/01/manifest.json", "mts/2025/02/manifest.json", "mts/2026/01/manifest.json"])
+        s3.get_paginator.assert_called_once_with("list_objects_v2")
+        s3.get_paginator.return_value.paginate.assert_called_once_with(Bucket="feeds", Prefix="mts/")
+
+    def test_year_and_month_prefixes_have_directory_boundaries(self):
+        for prefix in ("mts/2025", "mts/2025/", "mts/2025/01"):
+            with self.subTest(prefix=prefix):
+                s3 = Mock()
+                s3.get_paginator.return_value.paginate.return_value = [{"Contents": [
+                    {"Key": "mts/2025/01/manifest.json"},
+                    {"Key": "mts/20250/01/manifest.json"},
+                    {"Key": "mts/2026/01/manifest.json"}]}]
+                self.assertEqual(loader.select_manifests(s3, "feeds", prefix),
+                                 ["mts/2025/01/manifest.json"])
+                s3.get_paginator.return_value.paginate.assert_called_once_with(
+                    Bucket="feeds", Prefix=prefix.rstrip("/") + "/")
+
+    def test_empty_discovery_fails(self):
+        s3 = Mock()
+        s3.get_paginator.return_value.paginate.return_value = [{}]
+        with self.assertRaisesRegex(ValueError, "No MTS manifests"):
+            loader.select_manifests(s3, "feeds", "mts")
+
+    def test_missing_or_invalid_prefix_fails_before_listing(self):
+        for prefix in (None, "", "REQUIRED", "other", "s3://feeds/mts", "/mts",
+                       "mts/2025/13", "mts/2025/../2026", "mts/2025/01/manifest.json"):
+            with self.subTest(prefix=prefix):
+                s3 = Mock()
+                with self.assertRaises(ValueError):
+                    loader.select_manifests(s3, "feeds", prefix)
+                s3.get_paginator.assert_not_called()
+
+    def test_reports_load_sequentially_and_stop_on_first_failure(self):
+        keys = ["mts/2025/01/manifest.json", "mts/2025/02/manifest.json", "mts/2026/01/manifest.json"]
+        events = []
+
+        def read(s3, bucket, key):
+            events.append(("read", key))
+            return key, "batch", sentinel.rows
+
+        def write(spark, namespace, report_date, rows):
+            events.append(("write", report_date))
+            if report_date == keys[1]:
+                raise RuntimeError("write failed")
+
+        with patch.object(loader, "load_report", side_effect=read), \
+                patch.object(loader, "write_report", side_effect=write), \
+                self.assertLogs(loader.LOGGER, level="ERROR"), \
+                self.assertRaisesRegex(RuntimeError, "write failed"):
+            loader.load_manifests(Mock(), Mock(), "feeds", "silver_mts", keys)
+        self.assertEqual(events, [("read", keys[0]), ("write", keys[0]),
+                                  ("read", keys[1]), ("write", keys[1])])
+
+    def test_all_selected_reports_are_written(self):
+        keys = ["mts/2025/01/manifest.json", "mts/2026/01/manifest.json"]
+        with patch.object(loader, "load_report", return_value=(date(2025, 1, 31), "batch", {})) as read, \
+                patch.object(loader, "write_report") as write:
+            loader.load_manifests(sentinel.s3, sentinel.spark, "feeds", "silver_mts", keys)
+        self.assertEqual([call.args[2] for call in read.call_args_list], keys)
+        self.assertEqual(write.call_count, 2)
 
 
 if __name__ == "__main__":
