@@ -1,4 +1,5 @@
 .venv/
 __pycache__/
 exports/
-mts/local_data/
+mts/local_data/mts_feeds
+mts/local_data/mts_export
