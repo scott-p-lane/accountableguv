@@ -3,6 +3,8 @@
 `mts_lakehouse_iac.yaml` creates a new S3 table bucket, `silver_mts` namespace,
 Glue 5.0 Spark job, scoped execution role, CloudWatch log groups with 30-day
 retention, an Athena SQL workgroup, and a private S3 bucket for query results.
+It also creates an optional Glue CSV export job and dedicated execution role
+when `ExportScriptObjectKey` is supplied. See the [export setup](EXPORT.md).
 It reads the existing feeds bucket without importing or modifying it.
 The job creates `mts_table_1` through `mts_table_9` on its first successful load.
 
@@ -40,6 +42,10 @@ account-wide Glue Data Catalog/Lake Formation integration.
    | `WorkerCount` | Defaults to two G.1X workers. |
    | `GlueTimeoutMinutes` | Defaults to 30; increase for long backfills (maximum 1,440). |
    | `AthenaQueryScanLimitBytes` | Defaults to 1,073,741,824 bytes (1 GiB) scanned per query. |
+   | `ExportScriptObjectKey` | Uploaded `export_mts_csv.py` key in `GlueScriptBucketName`. Empty disables export; set it to create the export job and role. |
+   | `ExportPrefix` | Defaults to `exports/mts_exports/` in the existing feeds bucket. |
+   | `ExportTimeZone` | Defaults to `America/New_York` for dated export filenames. |
+   | `ExportQueryTimeoutSeconds` | Defaults to 900 seconds per Athena export query. |
 
 6. Acknowledge IAM resource creation (`CAPABILITY_IAM`), review the change set,
    and create the stack. The deployment identity/service role needs S3 Tables,
@@ -62,6 +68,14 @@ Do not create a second stack to manage an existing table bucket.
 
 The new scan-limit parameter has a default, so existing deployments do not need
 another uploaded Glue script or a new ingestion run just to add Athena.
+
+To add CSV exports to this same stack, upload the export script to the configured
+`GlueScriptBucketName` and set `ExportScriptObjectKey`, or run
+[`deploy_export.ps1`](deploy_export.ps1). Keep the ingestion script key and other
+existing parameter values. The update adds the export job, role, and log groups
+without replacing the table bucket, namespace, ingestion job, or Athena resources.
+See [export deployment and operation](EXPORT.md). Leaving the new key empty
+keeps existing deployments working without an export-script upload.
 
 ## Load a report or a range of feeds
 
@@ -179,7 +193,8 @@ Before the first table query:
    user, group, or role. For IAM Identity Center, add it through the appropriate
    permission set. It grants query execution in this workgroup, read/write access
    to its result prefix, and read access to the MTS catalog and namespace. It
-   grants no writes to the MTS tables and is not attached to anyone by default.
+   grants no writes to the MTS tables. The stack attaches it to the export role
+   when exports are enabled; analyst identities need their own attachment.
    Existing permissions and explicit denies still apply.
 3. If this catalog uses **Lake Formation** authorization, an administrator must
    also grant the querying principal the appropriate catalog/database visibility

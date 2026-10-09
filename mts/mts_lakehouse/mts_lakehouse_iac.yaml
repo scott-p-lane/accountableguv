@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: MTS S3 table bucket, Glue ingestion job, and Athena workgroup with query result storage.
+Description: MTS S3 Tables, Glue ingestion and optional CSV export jobs, and Athena query infrastructure.
 
 Parameters:
   FeedsBucketName:
@@ -41,8 +41,29 @@ Parameters:
     MaxValue: 1440
     Description: Glue run timeout in minutes; increase for multi-year backfills.
 
+  ExportScriptObjectKey:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|[A-Za-z0-9!_./()=-]+\.py'
+    Description: Export script key in GlueScriptBucketName; empty disables the optional CSV export job.
+  ExportPrefix:
+    Type: String
+    Default: exports/mts_exports/
+    AllowedPattern: '[A-Za-z0-9_/-]+/'
+    Description: CSV export prefix in the existing feeds bucket, ending with slash.
+  ExportTimeZone:
+    Type: String
+    Default: America/New_York
+    Description: IANA timezone for the export date in filenames.
+  ExportQueryTimeoutSeconds:
+    Type: Number
+    Default: 900
+    MinValue: 1
+    MaxValue: 900
+
 Conditions:
   UseDefaultFeedsBucket: !Equals [!Ref FeedsBucketName, '']
+  EnableMtsExport: !Not [!Equals [!Ref ExportScriptObjectKey, '']]
 
 Resources:
   AthenaResultsBucket:
@@ -326,6 +347,108 @@ Resources:
       Tags:
         Project: accountableguv-mts
 
+  ExportErrorLogGroup:
+    Condition: EnableMtsExport
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws-glue/${AWS::StackName}/mts-export/error'
+      RetentionInDays: 30
+  ExportOutputLogGroup:
+    Condition: EnableMtsExport
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws-glue/${AWS::StackName}/mts-export/output'
+      RetentionInDays: 30
+  ExportRole:
+    Condition: EnableMtsExport
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Ref MtsAthenaQueryPolicy
+      Policies:
+        - PolicyName: ExportScriptAndFiles
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ReadExactUploadedScript
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub 'arn:${AWS::Partition}:s3:::${GlueScriptBucketName}/${ExportScriptObjectKey}'
+              - Sid: LocateScriptAndExportBuckets
+                Effect: Allow
+                Action: s3:GetBucketLocation
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:s3:::${GlueScriptBucketName}'
+                  - !If
+                    - UseDefaultFeedsBucket
+                    - !Sub 'arn:${AWS::Partition}:s3:::acctguv-feeds-${AWS::Region}'
+                    - !Sub 'arn:${AWS::Partition}:s3:::${FeedsBucketName}'
+              - Sid: WriteCsvExports
+                Effect: Allow
+                Action: [s3:PutObject, s3:AbortMultipartUpload]
+                Resource: !If
+                  - UseDefaultFeedsBucket
+                  - !Sub 'arn:${AWS::Partition}:s3:::acctguv-feeds-${AWS::Region}/${ExportPrefix}mts_table_*.csv'
+                  - !Sub 'arn:${AWS::Partition}:s3:::${FeedsBucketName}/${ExportPrefix}mts_table_*.csv'
+              - Sid: ManageCompletionMarkers
+                Effect: Allow
+                Action: [s3:PutObject, s3:DeleteObject]
+                Resource: !If
+                  - UseDefaultFeedsBucket
+                  - !Sub 'arn:${AWS::Partition}:s3:::acctguv-feeds-${AWS::Region}/${ExportPrefix}export_complete_*.json'
+                  - !Sub 'arn:${AWS::Partition}:s3:::${FeedsBucketName}/${ExportPrefix}export_complete_*.json'
+              - Sid: LakeFormationCredentialAccess
+                Effect: Allow
+                Action: lakeformation:GetDataAccess
+                Resource: '*'
+              - Sid: WriteExportLogs
+                Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource:
+                  - !GetAtt ExportErrorLogGroup.Arn
+                  - !GetAtt ExportOutputLogGroup.Arn
+  ExportJob:
+    Condition: EnableMtsExport
+    Type: AWS::Glue::Job
+    DependsOn: [ExportErrorLogGroup, ExportOutputLogGroup]
+    Properties:
+      Name: !Sub '${AWS::StackName}-mts-export'
+      Description: Query all nine MTS tables with Athena and copy dated CSVs to the feeds bucket.
+      Role: !GetAtt ExportRole.Arn
+      GlueVersion: '5.0'
+      JobMode: SCRIPT
+      Command:
+        Name: glueetl
+        PythonVersion: '3'
+        ScriptLocation: !Sub 's3://${GlueScriptBucketName}/${ExportScriptObjectKey}'
+      WorkerType: G.1X
+      NumberOfWorkers: 2
+      Timeout: 150
+      MaxRetries: 0
+      ExecutionProperty:
+        MaxConcurrentRuns: 1
+      NonOverridableArguments:
+        '--region': !Ref AWS::Region
+        '--catalog': !Sub 's3tablescatalog/${TableBucketName}'
+        '--namespace': !Ref MtsNamespace
+        '--workgroup': !Ref MtsAthenaWorkGroup
+        '--output_s3': !If
+          - UseDefaultFeedsBucket
+          - !Sub 's3://acctguv-feeds-${AWS::Region}/${ExportPrefix}'
+          - !Sub 's3://${FeedsBucketName}/${ExportPrefix}'
+        '--export_timezone': !Ref ExportTimeZone
+        '--query_timeout': !Ref ExportQueryTimeoutSeconds
+        '--job-language': python
+        '--job-bookmark-option': job-bookmark-disable
+        '--custom-logGroup-prefix': !Sub '/aws-glue/${AWS::StackName}/mts-export'
+
 Outputs:
   AthenaWorkGroupName:
     Value: !Ref MtsAthenaWorkGroup
@@ -334,7 +457,7 @@ Outputs:
   AthenaResultsLocation:
     Value: !Sub 's3://${AthenaResultsBucket}/queries/'
   AthenaQueryPolicyArn:
-    Description: Attach to your querying IAM user, group, or role; not attached automatically.
+    Description: Attach to analyst identities; automatically attached to the optional export role.
     Value: !Ref MtsAthenaQueryPolicy
   AthenaTableCatalog:
     Description: Catalog available after enabling S3 Tables integration with Glue Data Catalog.
@@ -355,3 +478,18 @@ Outputs:
     Value: !Ref GlueErrorLogGroup
   OutputLogGroup:
     Value: !Ref GlueOutputLogGroup
+  ExportGlueJobName:
+    Condition: EnableMtsExport
+    Value: !Ref ExportJob
+  ExportGlueRoleArn:
+    Condition: EnableMtsExport
+    Value: !GetAtt ExportRole.Arn
+  MtsExportLocation:
+    Condition: EnableMtsExport
+    Value: !If
+      - UseDefaultFeedsBucket
+      - !Sub 's3://acctguv-feeds-${AWS::Region}/${ExportPrefix}'
+      - !Sub 's3://${FeedsBucketName}/${ExportPrefix}'
+  ExportScriptLocation:
+    Condition: EnableMtsExport
+    Value: !Sub 's3://${GlueScriptBucketName}/${ExportScriptObjectKey}'

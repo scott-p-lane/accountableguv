@@ -6,6 +6,12 @@ AWS infrastructure can be deployed directly through the AWS console using the
 The lakehouse stack creates an S3 table bucket and Glue job to load the staged MTS
 reports, plus an Athena workgroup and S3 storage for query results.
 
+To export the loaded S3 Tables and bulk-load them into a local PostgreSQL
+database, use the [MTS export/import routine](tools/mts_postgres/README.md).
+For dated CSV exports to the feeds bucket, deploy the
+[lakehouse stack's Glue ETL export job](aws_iac/cloud-formation-templates/mts_lakehouse/EXPORT.md),
+which provisions the job and its IAM permissions alongside ingestion and Athena.
+
 Source Repo for accountable govt. site. This is essentially my hobby project that allows me to 
 apply software and cloud skills that I don't get to apply at my day-to-day job as technology manager.
 
