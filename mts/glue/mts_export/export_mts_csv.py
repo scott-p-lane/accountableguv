@@ -1,11 +1,8 @@
-"""AWS Glue ETL driver: export nine Athena MTS tables as dated S3 CSVs."""
+"""AWS Glue ETL driver: export nine Athena MTS tables as named S3 CSVs."""
 
-from datetime import datetime, timezone
-import json
 import logging
 import time
 from urllib.parse import urlparse
-from zoneinfo import ZoneInfo
 
 LOGGER = logging.getLogger(__name__)
 QUERIES = {
@@ -46,10 +43,7 @@ def wait_query(athena, query_id, timeout):
         raise
 
 
-def export(athena, s3, args, now=None):
-    # Capture the date once so a run spanning midnight has consistent filenames.
-    started = now or datetime.now(timezone.utc)
-    export_date = started.astimezone(ZoneInfo(args['export_timezone'])).strftime('%Y-%m-%d')
+def export(athena, s3, args):
     bucket, prefix = s3_location(args['output_s3'])
     if not prefix.strip('/'):
         raise ValueError('Output must contain an export prefix')
@@ -57,9 +51,6 @@ def export(athena, s3, args, now=None):
     timeout = int(args['query_timeout'])
     if timeout <= 0:
         raise ValueError('query_timeout must be positive')
-    marker = prefix + f'export_complete_{export_date}.json'
-    # A same-day rerun must not leave an old success marker for partial output.
-    s3.delete_object(Bucket=bucket, Key=marker)
     completed = []
     # Complete every query before beginning replacement of the named CSVs.
     for table, query in QUERIES.items():
@@ -76,19 +67,13 @@ def export(athena, s3, args, now=None):
         source_bucket, source_key = s3_location(source_uri)
         completed.append({'table': table, 'query_id': query_id,
                           'source_bucket': source_bucket, 'source_key': source_key,
-                          'csv_key': prefix + f'{table}_{export_date}.csv'})
+                          'csv_key': prefix + f'{table}_export.csv'})
     for entry in completed:
         s3.copy({'Bucket': entry['source_bucket'], 'Key': entry['source_key']},
                 bucket, entry['csv_key'], ExtraArgs={'ServerSideEncryption': 'AES256'})
         LOGGER.info('Exported s3://%s/%s', bucket, entry['csv_key'])
-    manifest = {'export_date': export_date, 'timezone': args['export_timezone'],
-                'started_at': started.isoformat(), 'job_name': args['JOB_NAME'],
-                'tables': [{'table': e['table'], 'query_id': e['query_id'],
-                            'csv': f"s3://{bucket}/{e['csv_key']}"} for e in completed]}
-    s3.put_object(Bucket=bucket, Key=marker, Body=json.dumps(manifest, indent=2).encode('utf-8'),
-                  ContentType='application/json', ServerSideEncryption='AES256')
-    LOGGER.info('Completed nine exports: s3://%s/%s', bucket, marker)
-    return manifest
+    LOGGER.info('Completed nine CSV exports to s3://%s/%s', bucket, prefix)
+    return completed
 
 
 def main():
@@ -97,7 +82,7 @@ def main():
     from awsglue.utils import getResolvedOptions
 
     args = getResolvedOptions(sys.argv, ['JOB_NAME', 'region', 'catalog', 'namespace',
-        'workgroup', 'output_s3', 'export_timezone', 'query_timeout'])
+        'workgroup', 'output_s3', 'query_timeout'])
     logging.basicConfig(level=logging.INFO)
     session = boto3.Session(region_name=args['region'])
     export(session.client('athena'), session.client('s3'), args)

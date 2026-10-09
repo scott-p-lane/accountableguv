@@ -1,5 +1,4 @@
 import importlib.util
-import json
 import re
 from pathlib import Path
 import sys
@@ -27,14 +26,15 @@ class CsvExportTests(unittest.TestCase):
             "ResultConfiguration": {"OutputLocation": "s3://enforced-bucket/queries/query.csv"}}}
         return client
 
-    def test_copies_actual_workgroup_result_and_marks_completion(self):
+    def test_copies_actual_workgroup_result_without_completion_file(self):
         athena, s3 = self.client(), Mock()
         result = m.export_csv(athena, s3, self.args())
         copy_args = s3.copy.call_args.args
         self.assertEqual(copy_args[0], {"Bucket": "enforced-bucket", "Key": "queries/query.csv"})
         self.assertEqual(copy_args[1], "destination")
-        self.assertTrue(copy_args[2].endswith("/mts_table_1.csv"))
-        self.assertEqual(json.loads(s3.put_object.call_args.kwargs["Body"]), result)
+        self.assertTrue(copy_args[2].endswith("/mts_table_1_export.csv"))
+        self.assertEqual(result["tables"][0]["name"], "mts_table_1")
+        s3.put_object.assert_not_called()
         athena.get_query_results.assert_not_called()
 
     def test_failed_copy_leaves_no_completion_file(self):
@@ -55,14 +55,14 @@ class CsvExportTests(unittest.TestCase):
 
     def test_csv_loader_matches_exports_and_is_atomic(self):
         root = folder.parents[1]
-        loader = (root / "local_data" / "load_mts_data.sql").read_text()
+        loader = (root / "mts" / "local_data" / "mts_load_to_postgres" / "load_mts_data.sql").read_text()
         self.assertIn("\\set ON_ERROR_STOP on", loader)
         self.assertLess(loader.index("BEGIN;"), loader.index("TRUNCATE TABLE"))
         self.assertGreater(loader.index("COMMIT;"), loader.rindex("\\ir load_"))
         self.assertNotIn("jsonl", loader)
         for table in m.TABLES:
             self.assertIn(f"\\ir load_{table}.sql", loader)
-            individual = (root / "local_data" / f"load_{table}.sql").read_text()
+            individual = (root / "mts" / "local_data" / "mts_load_to_postgres" / f"load_{table}.sql").read_text()
             self.assertIn(f"\\ir create_{table}.sql", individual)
             self.assertIn("\\set ON_ERROR_STOP on", individual)
             self.assertLess(individual.index("BEGIN;"), individual.index("TRUNCATE TABLE"))
@@ -71,7 +71,7 @@ class CsvExportTests(unittest.TestCase):
             query = (m.QUERY_FOLDER / f"export_{table}.sql").read_text()
             expected = [line.strip().rstrip(',') for line in query.splitlines()
                         if line.startswith('    ')]
-            match = re.search(rf"\\copy mts\.{table} \((.*?)\) FROM '{table}\.csv'", individual)
+            match = re.search(rf"\\copy mts\.{table} \((.*?)\) FROM '{table}_export\.csv'", individual)
             self.assertIsNotNone(match, table)
             self.assertEqual(match[1].split(', '), expected, table)
 
@@ -81,7 +81,7 @@ class CsvExportTests(unittest.TestCase):
             query = (m.QUERY_FOLDER / f"export_{table}.sql").read_text()
             select_columns = [line.strip().rstrip(',') for line in query.splitlines()
                               if line.startswith('    ')]
-            ddl = (root / "local_data" / f"create_{table}.sql").read_text()
+            ddl = (root / "mts" / "local_data" / "mts_load_to_postgres" / f"create_{table}.sql").read_text()
             ddl_columns = [line.strip().split(' ')[0] for line in ddl.splitlines()
                            if line.startswith('    ')]
             self.assertEqual(select_columns, ddl_columns, table)

@@ -44,7 +44,6 @@ account-wide Glue Data Catalog/Lake Formation integration.
    | `AthenaQueryScanLimitBytes` | Defaults to 1,073,741,824 bytes (1 GiB) scanned per query. |
    | `ExportScriptObjectKey` | Uploaded `export_mts_csv.py` key in `GlueScriptBucketName`. Empty disables export; set it to create the export job and role. |
    | `ExportPrefix` | Defaults to `exports/mts_exports/` in the existing feeds bucket. |
-   | `ExportTimeZone` | Defaults to `America/New_York` for dated export filenames. |
    | `ExportQueryTimeoutSeconds` | Defaults to 900 seconds per Athena export query. |
 
 6. Acknowledge IAM resource creation (`CAPABILITY_IAM`), review the change set,

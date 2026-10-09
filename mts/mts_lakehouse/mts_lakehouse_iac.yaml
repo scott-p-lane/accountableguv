@@ -51,10 +51,6 @@ Parameters:
     Default: exports/mts_exports/
     AllowedPattern: '[A-Za-z0-9_/-]+/'
     Description: CSV export prefix in the existing feeds bucket, ending with slash.
-  ExportTimeZone:
-    Type: String
-    Default: America/New_York
-    Description: IANA timezone for the export date in filenames.
   ExportQueryTimeoutSeconds:
     Type: Number
     Default: 900
@@ -397,13 +393,6 @@ Resources:
                   - UseDefaultFeedsBucket
                   - !Sub 'arn:${AWS::Partition}:s3:::acctguv-feeds-${AWS::Region}/${ExportPrefix}mts_table_*.csv'
                   - !Sub 'arn:${AWS::Partition}:s3:::${FeedsBucketName}/${ExportPrefix}mts_table_*.csv'
-              - Sid: ManageCompletionMarkers
-                Effect: Allow
-                Action: [s3:PutObject, s3:DeleteObject]
-                Resource: !If
-                  - UseDefaultFeedsBucket
-                  - !Sub 'arn:${AWS::Partition}:s3:::acctguv-feeds-${AWS::Region}/${ExportPrefix}export_complete_*.json'
-                  - !Sub 'arn:${AWS::Partition}:s3:::${FeedsBucketName}/${ExportPrefix}export_complete_*.json'
               - Sid: LakeFormationCredentialAccess
                 Effect: Allow
                 Action: lakeformation:GetDataAccess
@@ -420,7 +409,7 @@ Resources:
     DependsOn: [ExportErrorLogGroup, ExportOutputLogGroup]
     Properties:
       Name: !Sub '${AWS::StackName}-mts-export'
-      Description: Query all nine MTS tables with Athena and copy dated CSVs to the feeds bucket.
+      Description: Query all nine MTS tables with Athena and copy named CSVs to the feeds bucket.
       Role: !GetAtt ExportRole.Arn
       GlueVersion: '5.0'
       JobMode: SCRIPT
@@ -443,7 +432,6 @@ Resources:
           - UseDefaultFeedsBucket
           - !Sub 's3://acctguv-feeds-${AWS::Region}/${ExportPrefix}'
           - !Sub 's3://${FeedsBucketName}/${ExportPrefix}'
-        '--export_timezone': !Ref ExportTimeZone
         '--query_timeout': !Ref ExportQueryTimeoutSeconds
         '--job-language': python
         '--job-bookmark-option': job-bookmark-disable

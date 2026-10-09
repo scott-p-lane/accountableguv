@@ -2,14 +2,13 @@
 
 import argparse
 from datetime import datetime, timezone
-import json
 from pathlib import Path
 from urllib.parse import urlparse
 from uuid import uuid4
 
 from mts_postgres import TABLES, wait_query
 
-QUERY_FOLDER = Path(__file__).resolve().parents[2] / "local_data" / "athena_export"
+QUERY_FOLDER = Path(__file__).resolve().parents[2] / "mts" / "local_data" / "athena_export"
 
 
 def s3_location(uri):
@@ -37,7 +36,7 @@ def export_csv(athena, s3, args):
         execution = athena.get_query_execution(QueryExecutionId=query_id)["QueryExecution"]
         source_uri = execution["ResultConfiguration"]["OutputLocation"]
         source_bucket, source_key = s3_location(source_uri)
-        target_key = folder + table + ".csv"
+        target_key = folder + table + "_export.csv"
         # Server-side S3 copy: the CSV never passes through the local machine.
         # The managed copy supports multipart copying for large result files.
         s3.copy({"Bucket": source_bucket, "Key": source_key}, bucket, target_key,
@@ -45,10 +44,6 @@ def export_csv(athena, s3, args):
         manifest["tables"].append({"name": table, "query_id": query_id,
                                    "csv": f"s3://{bucket}/{target_key}"})
         print(f"Exported {table}: s3://{bucket}/{target_key}", flush=True)
-    # Written only after all selected table exports succeed.
-    s3.put_object(Bucket=bucket, Key=folder + "export_complete.json",
-                  Body=json.dumps(manifest, indent=2).encode("utf-8"),
-                  ContentType="application/json", ServerSideEncryption="AES256")
     return manifest
 
 
