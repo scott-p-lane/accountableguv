@@ -184,6 +184,22 @@
       border-radius: .3rem
     }
 
+    .card-link {
+      display: block;
+      color: var(--ink);
+      text-decoration: none
+    }
+
+    .card-link:hover {
+      background: #e6eee8;
+      border-color: var(--green)
+    }
+
+    .card-link:focus-visible {
+      outline: 3px solid #ad780b;
+      outline-offset: 4px
+    }
+
     .number {
       color: var(--green);
       font-size: .78rem;
@@ -220,8 +236,19 @@
     }
 
     @media(max-width:700px) {
+      header {
+        align-items: flex-start;
+        flex-direction: column
+      }
+
       nav {
-        display: none
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem 1rem
+      }
+
+      nav a {
+        margin-left: 0
       }
 
       .cards {
@@ -240,8 +267,8 @@
   <a class="skip" href="#content">Skip to main content</a>
   <header><a class="brand" href="home.html"><span class="mark" aria-hidden="true">A</span>UNDER CONSTRUCTION -
       People for Accountable Government</a>
-    <nav aria-label="Primary navigation"><a href="#mission">Our mission</a><a href="#approach">Our approach</a><a
-        href="govt-data-overview.html">Government Data Sources</a></nav>
+    <nav aria-label="Primary navigation"><a href="net-income.html">Net Income</a><a href="#mission">Our mission</a><a href="#approach">Our approach</a><a
+        href="govt-data-overview.html">Government Data Sources</a><a href="about.html">About</a></nav>
   </header>
   <main id="content">
     <section class="hero">
@@ -264,13 +291,12 @@
           and how by those funds. That's tougher, especially when we must do so free of political bias.</p>
       </div>
       <div class="cards" id="approach">
-        <article class="card"><span class="number">01 / ANALYZE</span>
-          <h3>Follow the Money!</h3>
+        <a class="card card-link" href="net-income.html" aria-labelledby="follow-the-money">
+          <span class="number">01 / ANALYZE</span>
+          <h3 id="follow-the-money">Follow the Money!</h3>
           <p>Bring together trustworthy public records and datasets to understand the flow of government funds.</p>
-          <p>We start with the U.S. Treasury's Monthly Treasury Statement (MTS) and other public data sources to
-            understand the flow of government funds.</p>
-          <p><a href="govt-data-overview.html">Explore government data sources</a></p>
-        </article>
+          <p>Explore the Net Income dashboard to follow federal net receipts using the U.S. Treasury's Monthly Treasury Statement (MTS).</p>
+        </a>
         <article class="card"><span class="number">02 / CONNECT</span>
           <h3>Capture the Impact</h3>
           <p>Relate legislation and policy choices to the agencies, programs, and operations they shape. Use their own (public) data to illustrate the real-world effects.</p>

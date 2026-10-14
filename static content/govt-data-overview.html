@@ -13,6 +13,7 @@
     <nav aria-label="Primary navigation">
       <a class="brand" href="home.html">Accountable Government</a>
       <a href="govt-data-overview.html" aria-current="page">Government data sources</a>
+      <a href="about.html">About</a>
     </nav>
   </header>
   <main id="content">
@@ -33,6 +34,54 @@
       </article>
       <p class="note">The table guides document this site's August 2026 reference snapshot. Treasury's monthly publication schedule does not mean this site's reference data updates automatically. Check the reporting period and coverage shown in each guide or dashboard.</p>
       <p><a href="https://fiscaldata.treasury.gov/datasets/monthly-treasury-statement/">Explore the official MTS dataset, downloads, and API</a>.</p>
+    </section>
+    <section aria-labelledby="transparency">
+      <h2 id="transparency">How the data reaches this site</h2>
+      <p>This description reflects the pipeline code and infrastructure templates in this project, reviewed on <time datetime="2026-10-14">October 14, 2026</time>. It describes the implemented process; it does not certify a live deployment's configuration or its latest successful refresh.</p>
+      <nav aria-label="Data transparency sections">
+        <a href="#architecture">Architecture</a>
+        <a href="#transformations">Transformations</a>
+        <a href="#validation">Checks and corrections</a>
+        <a href="#coverage">Coverage and limitations</a>
+      </nav>
+
+      <h3 id="architecture">Architecture and data flow</h3>
+      <ol>
+        <li><strong>Official source:</strong> the Treasury Fiscal Data API's <code>mts_table_1</code> through <code>mts_table_9</code> endpoints. Each download selects a report using <code>record_date</code> and retrieves all API pages for that date. The downloader can collect the latest report or a selected historical range.</li>
+        <li><strong>Collection and staging:</strong> a Python downloader, runnable in AWS Lambda or locally, assembles one JSON file per table. In AWS, files are stored in a private, versioned Amazon S3 bucket under <code>mts/YYYY/MM/</code>. A manifest records the report date, file keys, row counts, and SHA-256 checksums.</li>
+        <li><strong>Structured storage:</strong> a manually invoked AWS Glue Spark job validates the staged files and loads nine Apache Iceberg tables in Amazon S3 Tables, partitioned by <code>record_date</code>.</li>
+        <li><strong>Queries and exports:</strong> Amazon Athena queries the structured tables. An optional Glue export job selects the source and lineage columns into named CSV files without joins, filters, or aggregation. Separate tools support CSV export and loading into a local PostgreSQL database for analysis.</li>
+        <li><strong>Presentation:</strong> static HTML and CSS are configured for delivery from private S3 storage through Amazon CloudFront. The <a href="net-income.html">Net Income page</a> embeds a separately published Tableau Public dashboard using MTS Table 4. Publishing or refreshing that dashboard is a separate step from downloading and loading reports.</li>
+      </ol>
+
+      <h3 id="transformations">What transformations are performed?</h3>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable data transformation table">
+        <table>
+          <caption>Changes made by collection and lakehouse ingestion</caption>
+          <thead><tr><th scope="col">Stage</th><th scope="col">Change</th><th scope="col">Effect on interpretation</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">API pages to staged JSON</th><td>Combine paginated rows; retain field labels, declared types, and formats; add report date and source URL; serialize JSON with sorted keys and compact spacing.</td><td>Row values are preserved, but the staged file is a repackaged dataset rather than a byte-for-byte copy of an API response. Checksums identify these staged files.</td></tr>
+            <tr><th scope="row">Missing values</th><td>Convert JSON null and Treasury's literal string <code>"null"</code> to SQL NULL.</td><td>A missing amount remains missing; it is not converted to zero.</td></tr>
+            <tr><th scope="row">Amounts</th><td>Convert currency strings to exact <code>decimal(38,2)</code> values. Reject values that would lose precision.</td><td>Ingestion does not scale, round away precision, adjust for inflation, change signs, or aggregate amounts. Units and period meanings must be read with the source fields.</td></tr>
+            <tr><th scope="row">Dates and numbers</th><td>Convert ISO report dates to database dates, and calendar/fiscal components and source line numbers to integers.</td><td>Types become suitable for querying. The report reference date is distinct from the download or publication date.</td></tr>
+            <tr><th scope="row">Labels and identifiers</th><td>Keep descriptions, classification identifiers, hierarchy codes, and other declared string fields as text.</td><td>Leading zeros and hierarchical sequences are retained. Repeated labels do not become unique keys.</td></tr>
+            <tr><th scope="row">Traceability</th><td>Add source bucket, key, version ID when available, checksum, URL, manifest key/version, manifest-hash batch ID, transformation version, and UTC ingestion timestamp.</td><td>These are project-added provenance fields, not Treasury financial measures. The current loader uses transformation version <code>1</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="validation">Checks, reruns, and corrections</h3>
+      <p>Before writing a report's data, ingestion checks that its manifest contains exactly nine tables and verifies file hashes, row counts, report dates, every row's columns, metadata types, and value conversions. It also checks target table schemas before replacing data. Unexpected schemas fail for review rather than silently changing the tables.</p>
+      <p>For each table, a successful load replaces the rows for that report date. Reruns avoid appending duplicate reports, and a revised report removes rows no longer present in its source. Other report dates remain intact. Each rerun creates new ingestion timestamps and table snapshots.</p>
+      <p class="note">Replacement is atomic within each table, but there is no single transaction across all nine tables. A failed run can leave a partially updated report. Consumers should wait for the whole ingestion job to succeed; a complete rerun repairs a partial load. CSV exports likewise do not provide a single atomic publication across all nine files.</p>
+      <p>S3 versioning supports source inspection, but the staging template expires superseded object versions after 90 days. The downloader records hashes rather than pinning source version IDs in the manifest, so a historical manifest alone does not guarantee that its original source files can still be replayed.</p>
+
+      <h3 id="coverage">Refresh, coverage, and analytical limitations</h3>
+      <p>The staging template defaults to a monthly download on the 20th at 18:00 UTC, with a configurable schedule. The latest-report mode requires the previous month's report and fails if Treasury returns a different date. Lakehouse ingestion is manually invoked; this repository does not implement an automatic end-to-end refresh through dashboard publication. The table guides use an August 2026 reference snapshot; dashboard coverage must be checked in the dashboard itself.</p>
+      <p>MTS rows include headings, detail lines, subtotals, totals, and different reporting periods. Adding all rows can double-count amounts, and adding fiscal-year-to-date values across months can count the same activity repeatedly. Use the table guides to select the appropriate hierarchy level, period, and measure. Ingestion preserves Treasury's published net amounts and totals rather than recalculating them.</p>
+      <p>The Tableau workbook's calculations, filters, joins, unit formatting, and refresh history are not documented in this repository and have not been verified by this page. The preservation guarantees above apply to the collection and lakehouse stages. Dashboard-specific transformations need their own documentation before the same guarantees can be extended to a visualization.</p>
+      <p>This pipeline uses MTS financial data. USAFacts, linked below, is a separate resource rather than an input to this pipeline. The implemented ingestion does not link spending to legislation or establish the causal effects of policy.</p>
+      <p>For field meanings and source examples, see the <a href="mts/mts-overview.html">nine MTS table guides</a>. For the publisher's dataset and access options, see <a href="https://fiscaldata.treasury.gov/datasets/monthly-treasury-statement/">Treasury Fiscal Data</a>.</p>
     </section>
     <section aria-labelledby="recommended-resources">
       <h2 id="recommended-resources">Recommended resources</h2>

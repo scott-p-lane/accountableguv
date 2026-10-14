@@ -1,34 +1,23 @@
 # accountableguv
 
-AWS infrastructure can be deployed directly through the AWS console using the
-[feeds staging stack](aws_iac/cloud-formation-templates/feeds_staging/README.md) and
-[MTS lakehouse stack](aws_iac/cloud-formation-templates/mts_lakehouse/README.md).
-The lakehouse stack creates an S3 table bucket and Glue job to load the staged MTS
-reports, plus an Athena workgroup and S3 storage for query results.
+This is essentially my hobby project that allows me to apply software and cloud skills that I didn't get to apply at my day-to-day job as technology manager. This is built utilizing Cloud Native solutions where possible (AWS and Tableau). I have made use of Codex to help generate HTML and Python scripts, but I have had to review and refine that so it isn't just "pure AI". I'm the driver providing requirements, approaches and in many cases constantly simplifying the operational aspects of it this. AI does a great job of typing out and validating code that matches my requirements. I find that I learn more when using it. 
 
-To export the loaded S3 Tables and bulk-load them into a local PostgreSQL
-database, use the [MTS export/import routine](tools/mts_postgres/README.md).
-For named CSV exports to the feeds bucket, deploy the
-[lakehouse stack's Glue ETL export job](aws_iac/cloud-formation-templates/mts_lakehouse/EXPORT.md),
-which provisions the job and its IAM permissions alongside ingestion and Athena.
+For openness, a quick tangent on how I feel about AI. I don't view AI as cheating, but necessary. I'm one person and even though I'm a certified AWS Solutions Architect, it does not mean that I am expert in crafting cloud formation templates. Consider that just an S3 bucket has countless configurations and then it needs IAM policies allowing a Glue job (which also has endless knobs to configure), then Athena has a slew of requirements. Conceptually it is easy to understand what is needed, but I don't really want to spend a day on trying to get the correct CFN incantation! The cloud and SaaS are incredibly powerful engineering building blocks, but they aren't simple and they are constantly evolving at an ever quickening pace. AI is not just "nice to have", it is a necessity brought on by the complexity of the tools we need to solve ever increasing complex problems with a growing list of non-functional requirements (e.g., security). In other words don't give me a programming test without also providing me access to Claude or Codex. That's like giving someone an advanced Calculus exam without letting them use a calculator!
 
-Source Repo for accountable govt. site. This is essentially my hobby project that allows me to 
-apply software and cloud skills that I don't get to apply at my day-to-day job as technology manager.
+OK, back to the site and its purpose. For a while, I've been fascinated with "connecting the dots". It's something I was really good at as a manager. I used to combine different corporate data sets and systems and correlate them to business success. By combining spending data, aligning it with business units, software releases, and work in flight I could quickly ascertain the impact of the decisions/investments being made. It was exciting to get disparate data sets functioning together and to present in a way that allowed better decisions/action by business leaders. I could literally tell you based on unit cost of system transactions combined with sales and usage data how much profit we were making on each and every customer . . . or not (some customers are loss leaders). 
 
-I chose this because I don't believe there is a greate accountability or clarity in our government. There 
-is a good bit of transparency, but that only results in a lot of confusing and incoherent data that most 
-don't have the time to process. 
+I began wondering if I could do the same thing but at the government level. I realize that USAFacts does this today, but I needed something that I cared about and still need the hands-on experience (they weren't hiring . . . ).  I'm copping to being a bit of a copy-cat in this regard. I'm not doing this because I think it's original. I'm doing it because I want to become expert in the available data and how to present in a way that hopefully cuts through all the noise and opinions and lays out simply "what is and why". I want to experience this first hand and understand the systems, processing and architecture behind it (as well as the publicly available data sources).
 
-I'm looking to tap into those data sources, correlate them to legislations or goverment operations and 
-provide a clear, succinct view of the cause and effect of policies, regulations, and spending.
+I don't believe there is a great accountability or clarity in our government. There is a good bit of transparency, but that only results in a lot of confusing and incoherent data that most don't have the time to process or even understand. Like USAFacts, I'm looking to tap into those data sources, correlate them to legislations or goverment operations and provide a clear, succinct view of the cause and effect of policies, regulations, and spending . . . without any polical bias. In business outcomes are postive, neutral or negative based on success criteria and investment returns. I'm hoping that we can make things that simple when reviewing government performance. 
+
 
 I'm also hoping to provide a platform where folks can have balanced, rationale discourse on the things our goverment
 is doing and helping understanding what our elected officials have actually accomplished (you can't really know much by
-watching election ads). 
+watching election ads). I do believe that this is where accountableguv can be differentiated from USAFacts. Not sure how we avoid the trolls though. I don't want this to be another social media platform (like LinkedIn, Meta/Facebook, X, etc.). 
 
 Finally, if this ever takes off, it would be nice if our govt. leaders and their consituents could have open discussions/debates
 on this platform for all to see and maybe tear down the walls of parties. Wouldn't it be interesting if "bi-partisan" wasn't
 different parties working together but the people and our government working together (independent of party affiliations). 
 
 Probably an idealistic pipe dream, but I've got the time so may as well make an effort to move the needle in a direction that
-will lead to the next evolutionary leap for democracy.
+will lead to the next evolutionary leap for democracy and let me flex some engineering skills in the process :-)

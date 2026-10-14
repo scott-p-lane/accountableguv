@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Explore federal net receipts with the interactive Net Income dashboard, based on Monthly Treasury Statement Table 4.">
+  <title>Net Income | Accountable Government</title>
+  <link rel="stylesheet" href="mts/mts.css">
+  <script type="module" src="https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js"></script>
+</head>
+<body class="net-income-page">
+  <a class="skip" href="#content">Skip to main content</a>
+  <header>
+    <nav aria-label="Primary navigation">
+      <a class="brand" href="home.html">Accountable Government</a>
+      <a href="net-income.html" aria-current="page">Net Income</a>
+      <a href="govt-data-overview.html">Government data sources</a>
+    </nav>
+  </header>
+  <main id="content">
+    <h1>Net Income</h1>
+    <p>This dashboard explores federal net receipts—receipts after refunds—from Monthly Treasury Statement Table 4. Use its controls to compare reporting periods, and check the coverage dates shown in the dashboard.</p>
+<section class="dashboard-panel" aria-labelledby="dashboard">
+  <div class="dashboard-heading">
+    <h2 id="dashboard">Net receipts dashboard</h2>
+    <a href="https://public.tableau.com/app/profile/scott.lane7297/viz/mts_analysis/NetReceiptsDashboard" target="_blank" rel="noopener noreferrer">Open dashboard on Tableau Public (new tab)</a>
+  </div>
+  <p id="dashboard-help">Explore net receipts using the dashboard's interactive controls. If the dashboard does not load or is difficult to use on your device, open it directly on Tableau Public.</p>
+  <div class="dashboard-viewport">
+    <tableau-viz id="net-receipts-viz" src="https://public.tableau.com/views/mts_analysis/NetReceiptsDashboard" width="100%" height="100%" toolbar="bottom" hide-tabs aria-label="Interactive net receipts dashboard" aria-describedby="dashboard-help"></tableau-viz>
+  </div>
+  <noscript><p>The interactive dashboard requires JavaScript. Use the link above to view it on Tableau Public.</p></noscript>
+</section>
+    <p>About the data: <a href="mts/table-4.html#fields">Table 4 field documentation</a> · <a href="mts/mts-overview.html">Monthly Treasury Statement overview</a>.</p>
+  </main>
+  <footer>Accountable Government · Public evidence. Clear context. Constructive discourse.</footer>
+</body>
+</html>
