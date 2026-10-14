@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="MTS overview — MTS source reference for Accountable Government.">
+    <title>MTS overview | Accountable Government</title>
+    <link rel="stylesheet" href="mts.css">
+</head>
+
+<body><a class="skip" href="#content">Skip to main content</a>
+    <header>
+        <nav aria-label="Primary navigation"><a class="brand" href="../home.html">Accountable Government</a><a
+                href="../govt-data-overview.html">Government data sources</a></nav>
+    </header>
+    <main id="content">
+        <p class="eyebrow">Data source guide</p>
+        <h1>Monthly Treasury Statement</h1>
+        <p class="lead">Explore the fields and values in the nine MTS tables collected by Accountable Government. Start
+            with a summary, then follow receipts, spending, financing, or trust fund activity into the detail.</p>
+        <p>The U.S. Treasury publishes the Monthly Treasury Statement (MTS). This guide documents the nine numbered JSON
+            tables in this repository's download pipeline; it does not cover additional Treasury subsidiary tables.</p>
+        <h2>Explore the tables</h2>
+        <div class="cards">
+            <article class='card'>
+                <p class='eyebrow'>Table 1</p>
+                <h2><a href='table-1.html'>Receipts, outlays, and deficit or surplus</a></h2>
+                <p>Monthly receipts, gross outlays, and deficit or surplus, grouped by fiscal year. Read the month label
+                    and parent fiscal-year heading together; record_date is the report date, not the date of every
+                    amount.</p>
+            </article>
+            <article class='card'>
+                <p class='eyebrow'>Table 2</p>
+                <h2><a href='table-2.html'>Budget results and estimates</a></h2>
+                <p>On-budget, off-budget, and combined results, with current-month, fiscal-year-to-date, prior-year
+                    comparison, and budget estimate columns.</p>
+            </article>
+            <article class='card'>
+                <p class='eyebrow'>Table 3</p>
+                <h2><a href='table-3.html'>Receipts and outlays by source and agency</a></h2>
+                <p>A summary of receipt sources and spending agencies, with current-month and year-to-date comparisons
+                    and a budget estimate column.</p>
+            </article>
+            <article class='card'>
+                <p class='eyebrow'>Table 4</p>
+                <h2><a href='table-4.html'>Receipts of the U.S. Government</a></h2>
+                <p>Receipt categories with gross receipts, refunds, and net receipts for the current month, current
+                    fiscal year to date, and comparable prior fiscal year to date.</p>
+            </article>
+            <article class='card'>
+                <p class='eyebrow'>Table 5</p>
+                <h2><a href='table-5.html'>Outlays of the U.S. Government</a></h2>
+                <p>Agency and program outlays, with gross outlays, applicable receipts, and net outlays for three
+                    reporting periods. Applicable receipts offset gross outlays.</p>
+            </article>
+            <article class='card'>
+                <p class='eyebrow'>Table 6</p>
+                <h2><a href='table-6.html'>Means of financing</a></h2>
+                <p>Financing accounts with opening and closing balances and net transactions. Interpret signs in the
+                    context of the liability or asset account; a balance is a stock, while a transaction is a flow.</p>
+            </article>
+            <article class='card'>
+                <p class='eyebrow'>Table 7</p>
+                <h2><a href='table-7.html'>Receipts and outlays by month</a></h2>
+                <p>Receipt and outlay classifications with separate October through September amount columns and
+                    year-to-date comparisons. Fiscal-year months run from October to September.</p>
+            </article>
+            <article class='card'>
+                <p class='eyebrow'>Table 8</p>
+                <h2><a href='table-8.html'>Trust fund activity and balances</a></h2>
+                <p>Trust fund receipts, outlays, excess, and account balances, together with general fund and interfund
+                    adjustment rows. Excess represents receipts less outlays.</p>
+            </article>
+            <article class='card'>
+                <p class='eyebrow'>Table 9</p>
+                <h2><a href='table-9.html'>Receipts by source and outlays by function</a></h2>
+                <p>Receipt sources and spending by function, such as National Defense or Net Interest. Functions
+                    describe the purpose of spending and differ from agency groupings.</p>
+            </article>
+        </div>
+        <h2 id="reading">How to read the data</h2>
+        <ul>
+            <li><strong>Reporting periods:</strong> <code>record_date</code> identifies the report. FYTD means fiscal
+                year to date. The federal fiscal year runs October–September. In Table 1, row and parent labels identify
+                the amount's month and year; in Table 7, month columns identify the period.</li>
+            <li><strong>Amounts and units:</strong> Metadata declares monetary fields as <code>CURRENCY</code> with
+                format <code>$10.20</code>, but the stored values contain plain decimal strings. This formatting hint is
+                not an explicit scale declaration. Do not assume all columns use the same scale: budget estimate values
+                in Tables 2 and 3 differ in magnitude from actuals. Confirm units against the corresponding Treasury
+                report before calculations.</li>
+            <li><strong>Missing values:</strong> The literal string <code>"null"</code> occurs in the stored data. Treat
+                it as missing or not applicable, not zero. A heading may have no amounts; a month may not yet be
+                reported. Preserve negative values and distinguish missing from a reported zero.</li>
+            <li><strong>Hierarchy and totals:</strong> Rows include headings, details, subtotals, and totals. Use
+                <code>parent_id</code>, <code>classification_id</code>, and sequence fields within a table/report to
+                understand relationships. Adding every row double-counts totals. Do not assume IDs are stable across
+                months or unique across tables.</li>
+            <li><strong>Ordering:</strong> JSON array order need not match the report. Sort <code>print_order_nbr</code>
+                numerically. Hierarchical sequence codes such as <code>1.10</code> are text, not decimal numbers.</li>
+            <li><strong>Values versus types:</strong> Even fields declared INTEGER or CURRENCY are serialized as strings
+                in these snapshots. Parse amounts with decimal precision and normalize missing values first. Examples
+                and code lists describe August 2026 only, not a complete historical value domain.</li>
+        </ul>
+        <h2>What is stored in each file?</h2>
+        <p>The downloader saves files as <code>mts/YYYY/MM/mts_table_N.json</code>. The reference snapshot is under
+            <code>test/data/mts/2026/08/</code>.</p>
+        <ul>
+            <li><code>report_date</code>: the report date used for the download.</li>
+            <li><code>source_url</code>: the Treasury API table endpoint.</li>
+            <li><code>data</code>: the array of table rows documented on each detail page.</li>
+            <li><code>meta.labels</code>, <code>meta.dataTypes</code>, and <code>meta.dataFormats</code>: source field
+                metadata; <code>meta.count</code>: stored row count.</li>
+        </ul>
+        <p>A separate <code>manifest.json</code> records the report date, file keys, SHA-256 hashes, and row counts. It
+            describes the downloaded files rather than another MTS table.</p>
+        <h2>Sources and scope</h2>
+        <p>Field labels, formats, codes, and examples are taken from the repository's 2026-08-31 JSON snapshots.
+            Explanations interpret those field names and row structures; the local metadata does not contain a complete
+            official code glossary.</p>
+        <p>Consult the <a href="https://fiscaldata.treasury.gov/datasets/monthly-treasury-statement/">official Treasury
+                MTS dataset and data dictionary</a> and the <a
+                href="https://fiscal.treasury.gov/accounting/monthly-treasury-statement">Bureau of the Fiscal Service
+                MTS page</a> for published reports and source documentation.</p>
+    </main>
+    <footer>Accountable Government · MTS source reference · Snapshot: August 2026</footer>
+</body>
+
+</html>
