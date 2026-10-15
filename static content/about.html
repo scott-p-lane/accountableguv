@@ -1,12 +1,15 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Learn why Accountable Government was created, how it approaches public data, and its goals for informed civic discussion.">
+  <meta name="description"
+    content="Learn why Accountable Government was created, how it approaches public data, and its goals for informed civic discussion.">
   <title>About | Accountable Government</title>
   <link rel="stylesheet" href="mts/mts.css">
 </head>
+
 <body>
   <a class="skip" href="#content">Skip to main content</a>
   <header>
@@ -18,46 +21,99 @@
     </nav>
   </header>
   <main id="content">
-    <p class="eyebrow">Purpose and perspective</p>
     <h1>About Accountable Government</h1>
-    <p class="lead">Accountable Government is an independent personal project exploring how public data can help people understand government finances, assess decisions, and participate in informed, constructive discussion.</p>
-
-    <section aria-labelledby="origins">
-      <h2 id="origins">Connecting data to decisions</h2>
-      <p>In my work as a technology manager, I brought together spending, business operations, software delivery, sales, and usage data to understand the results of business decisions. Connecting those sources made it possible to examine investment returns, service costs, and customer profitability, and to give leaders a clearer basis for action.</p>
-      <p>This project began with a question: could that same approach help make government performance easier to understand? Public agencies publish substantial amounts of information, but availability alone does not make that information accessible. Records spread across systems can be difficult to interpret, compare, or connect to the decisions behind them.</p>
-      <p>Accountable Government is an opportunity to investigate those connections firsthand while developing deeper knowledge of public datasets and the engineering needed to make them useful.</p>
-    </section>
-
-    <section aria-labelledby="purpose">
-      <h2 id="purpose">Making public information useful</h2>
-      <p>The long-term goal is to connect government receipts and spending with legislation, policy, programs, and operations, then present the evidence in clear, accessible terms. That means asking what was invested, what outcomes were intended, who was affected, and what the available data can tell us about the results.</p>
-      <p>The aim is to evaluate evidence without favoring a political party or predetermined conclusion. Government outcomes can involve competing priorities and cannot always be reduced to a financial return. Meaningful assessment requires explicit success criteria, appropriate context, and a clear account of uncertainty. A relationship between two datasets is a starting point for investigation; it does not by itself establish cause and effect.</p>
-      <p>The current site starts with the U.S. Treasury's Monthly Treasury Statement and a dashboard of federal net receipts. Connecting financial data to policy outcomes remains a development goal. The <a href="govt-data-overview.html">government data sources page</a> explains the implemented architecture, source data, transformations, and limitations.</p>
-    </section>
+    <p class="lead">Accountable Government is an independent personal project exploring how public data can help people
+      understand government finances, assess impact of decisions, and participate in constructive discourse on existing
+      and upcoming policies.</p>
 
     <section aria-labelledby="inspiration">
       <h2 id="inspiration">Learning from existing work</h2>
-      <p>USAFacts is an inspiration for this project. Its approach to making government data understandable reflects the value I hope to contribute. This project is also a personal learning effort: an opportunity to work directly with the sources, understand their limitations, and build the systems that support useful analysis.</p>
-      <p>Accountable Government is a separate project and is not affiliated with USAFacts. You can find a link to USAFacts in our <a href="govt-data-overview.html#recommended-resources">recommended resources</a>.</p>
+      <p><a href="https://usafacts.org/">USAFacts</a> is an inspiration for this project. Its approach to making
+        government data understandable reflects the
+        value I hope to contribute. This project is also a personal learning effort: an opportunity to work directly
+        with the sources, understand their limitations, and build the systems that support useful analysis.</p>
+      <p>Accountable Government is a separate project and is not affiliated with USAFacts. I strongly urge folks to
+        subscribe to their reports. The narratives and data are superb, and USAFacts lobbies hard to ensure
+        that public data remains public.</p>
+    </section>
+
+    <section aria-labelledby="origins">
+      <h2 id="origins">Origins</h2>
+      <p>Throughout my career as both a software engineer and a technology manager, I brought together spending,
+        business operations, software delivery, sales,
+        and usage data to understand the results of business decisions. Connecting those sources made it possible to
+        examine investment returns, service costs, and customer profitability, and to give leaders a clearer basis for
+        action.</p>
+      <p>This project began with a question: could that same approach help make government performance easier to
+        understand? Public agencies publish substantial amounts of quality information, but availability alone does not
+        make
+        that information coherent or clear. Data is often fragmented and lacks context, making it difficult to draw
+        meaningful
+        conclusions about government performance.</p>
+      <p>Accountable Government is an opportunity to investigate those connections firsthand while fostering deeper
+        knowledge of public datasets and the engineering needed to make them useful to users <b>and elected
+          officials</b>.</p>
+    </section>
+
+    <section aria-labelledby="purpose">
+      <h2 id="purpose">Tracking Government Impact (Return on Investment)</h2>
+      <p>Return on Investment (ROI) is a key metric for evaluating the effectiveness of business investments. It is
+        typically measured in dollar terms (e.g., revenue, profit, or cost savings).</p>
+      <p>In government, the impact of spending is often measured in terms of social outcomes (e.g., improved public
+        health, education, or infrastructure). This project aims to connect government spending with legislation,
+        policy, programs, and operations to provide a clearer picture of how public funds are used and their impact on
+        society.</p>
+      <p>The long-term goal is to connect government revenue and spending with legislation, policy, programs, and
+        operations, then present the evidence in clear, accessible terms. That means answering the questions: what was
+        invested, what
+        outcomes were intended, who was affected, and what the available data can tell us about the results.</p>
+      <p>The aim is to evaluate evidence without confirmation bias. This can only be achieved when there is a clear
+        understanding of the intended impact of government decisions (i.e., success criteria). Any assessment of
+        government performance or the effectiveness of public spending must be based on the intended outcomes, not just
+        the financial inputs and outputs. With this in mind, any meaningful performance or impact assessment requires
+        explicit success criteria, appropriate context, and a clear account of uncertainty (though
+        we'll try to minimize it).
+        <b>At a minimum, if the lawmakers aren't able to provide success criteria (the intended impact), then one has to
+          challenge the investment altogether.</b>
+      </p>
     </section>
 
     <section aria-labelledby="engineering">
       <h2 id="engineering">Engineering and the use of AI</h2>
-      <p>I am a certified AWS Solutions Architect, and this project gives me hands-on experience with software and cloud engineering beyond the opportunities available in my management work. It uses cloud services where practical, including AWS for data processing and hosting, and Tableau for visualization.</p>
-      <p>I use AI tools, including Codex, to help generate and validate HTML, Python scripts, and infrastructure configuration. I define the requirements and approach, review and refine the output, and remain responsible for the implementation. These tools help one person work through the detail of complex systems while continuing to learn how those systems operate.</p>
-      <p>Transparency applies to the engineering as well as the analysis. Readers should be able to understand where the data came from, how it was processed, and which conclusions are supported by it.</p>
+      <p>I am a certified AWS Solutions Architect, and this project gives me hands-on experience with software and cloud
+        engineering beyond the opportunities available in my management work. It uses cloud native services where
+        practical,
+        including AWS for data processing and hosting, and Tableau for visualization. The architecture is predominantly
+        serverless.</p>
+      <p>I use AI tools, including Codex, to help generate and validate HTML, Python scripts, and infrastructure
+        configuration. I define the requirements and approach, review and refine the output, and remain responsible for
+        the implementation. These tools help me work through the detail of complex systems while continuing to
+        learn how those systems operate.</p>
+      <p>Transparency applies to the engineering as well as the analysis. Readers should be able to understand where the
+        data came from, how it was processed, and how public facing content is derived from it. I will do my best to
+        maintain this transparency throughout the project.</p>
+      <p>The <a href="govt-data-overview.html">government data sources page</a> explains the implemented architecture,
+        source
+        data, transformations, and limitations.</p>
+      <p>All the implementation details are available in the <a href="implementation-details.html">implementation
+          details</a> page. In addition, <a href="https://github.com/scott-p-lane/accountablegovernment">the source
+          code</a> for the project is available on GitHub, including scripts for data processing and visualization.
+        <b>I'm happy to collaborate and accept contributions!</b></p>
+      <h2 id="discussion">A longer-term vision for civic discussion.</h2>
+      <p>Over time, I hope to create space for balanced, evidence-based discussion about government decisions and the
+        work of elected officials. Shared facts can provide a stronger foundation for evaluating performance than
+        campaign messaging alone.</p>
+      <p>Discussion features are an aspiration, not a current capability. Building them would require a thoughtful
+        approach to moderation and participation so that conversation remains useful and respectful.</p>
+      <p>The broader ambition is to bring public officials and the people they represent into open discussion of
+        evidence, outcomes, and possible improvements. Accountability becomes more practical when people can understand
+        the information, question the conclusions, and work together across party affiliations.</p>
     </section>
 
-    <section aria-labelledby="discussion">
-      <h2 id="discussion">A longer-term vision for civic discussion</h2>
-      <p>Over time, I hope to create space for balanced, evidence-based discussion about government decisions and the work of elected officials. Shared facts can provide a stronger foundation for evaluating performance than campaign messaging alone.</p>
-      <p>Discussion features are an aspiration, not a current capability. Building them would require a thoughtful approach to moderation and participation so that conversation remains useful and respectful.</p>
-      <p>The broader ambition is to bring public officials and the people they represent into open discussion of evidence, outcomes, and possible improvements. Accountability becomes more practical when people can understand the information, question the conclusions, and work together across party affiliations.</p>
-    </section>
-
-    <p><a href="govt-data-overview.html">Explore the data and methodology</a> &middot; <a href="home.html">Back to home</a></p>
+    <p><a href="govt-data-overview.html">Explore the data and methodology</a> &middot; <a href="home.html">Back to
+        home</a></p>
   </main>
   <footer>Accountable Government &middot; Public evidence. Clear context. Constructive discourse.</footer>
 </body>
+
 </html>

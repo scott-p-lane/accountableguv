@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Source-by-source documentation of Accountable Government's data collection, validation, transformations, storage, and presentation.">
+  <title>Implementation details | Accountable Government</title>
+  <link rel="stylesheet" href="mts/mts.css">
+</head>
+<body>
+  <a class="skip" href="#content">Skip to main content</a>
+  <header>
+    <nav aria-label="Primary navigation">
+      <a class="brand" href="home.html">Accountable Government</a>
+      <a href="govt-data-overview.html">Government data sources</a>
+      <a href="implementation-details.html" aria-current="page">Implementation details</a>
+      <a href="about.html">About</a>
+    </nav>
+  </header>
+  <main id="content">
+    <p class="eyebrow">From source to presentation</p>
+    <h1>Implementation details</h1>
+    <p class="lead">Follow each data source through collection, validation, transformation, storage, and presentation. Each source has its own processing rules and refresh behavior.</p>
+    <p>Reviewed against the repository on <time datetime="2026-10-15">October 15, 2026</time>. This page describes implemented code and infrastructure templates; it does not confirm a deployed configuration or the latest successful run.</p>
+    <nav aria-label="Data sources on this page">
+      <a href="#mts">Monthly Treasury Statement (MTS)</a>
+      <a href="#future-sources">Future data sources</a>
+      <a href="#delivery">Website delivery</a>
+    </nav>
+
+    <section aria-labelledby="mts">
+      <h2 id="mts">Monthly Treasury Statement (MTS)</h2>
+      <p><strong>Status:</strong> collection, lakehouse ingestion, queries, and export tools are implemented. Dashboard publication is a separate activity.</p>
+      <p><strong>Publisher:</strong> U.S. Treasury, Bureau of the Fiscal Service. The pipeline uses the Fiscal Data API endpoints <code>mts_table_1</code> through <code>mts_table_9</code> under <code>https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/mts/</code>. See the <a href="govt-data-overview.html#mts">source overview</a> and <a href="mts/mts-overview.html">individual table guides</a> for subject matter and field definitions.</p>
+      <nav aria-label="MTS implementation sections">
+        <a href="#mts-collection">Collection</a>
+        <a href="#mts-validation">Validation</a>
+        <a href="#mts-transformations">Transformations</a>
+        <a href="#mts-storage">Storage and corrections</a>
+        <a href="#mts-exports">Exports and analysis</a>
+        <a href="#mts-refresh">Refresh and limitations</a>
+      </nav>
+
+      <h3>Data flow</h3>
+      <ol aria-label="MTS data flow">
+        <li>Treasury Fiscal Data API &rarr; Python downloader running in Lambda or locally.</li>
+        <li>Downloader &rarr; nine staged JSON files and one manifest per report month.</li>
+        <li>Staged files in Amazon S3 &rarr; AWS Glue validation and type conversion &rarr; nine Iceberg tables in Amazon S3 Tables.</li>
+        <li>Amazon Athena &rarr; CSV exports or a JSON Lines bundle &rarr; optional local PostgreSQL analysis.</li>
+        <li>A separately published Tableau Public workbook &rarr; embedded dashboard on the website.</li>
+      </ol>
+      <p>The export and local database tools support analysis. The repository does not establish which export or database revision feeds the published Tableau workbook.</p>
+
+      <h3 id="mts-collection">1. Collect and stage a report</h3>
+      <p>The downloader selects a month-end <code>record_date</code> and requests each of the nine tables with that exact date filter. It requests up to 1,000 rows per page, follows pagination up to a 20-page limit per table, and checks that every row belongs to the selected report and the combined count matches the API's reported total. Empty or changing results fail the download.</p>
+      <p>Latest-report mode discovers the newest date from Table 1 and requires it to match the previous calendar month's end. Historical mode accepts inclusive start and end dates and processes the month ends in that range, oldest first.</p>
+      <p>Rows are combined into one JSON object per table, retaining source labels, types, and formats and adding the report date and endpoint URL. JSON is serialized with sorted keys and compact spacing. These are repackaged source records, rather than original HTTP response files.</p>
+      <pre aria-label="Example staged report layout"><code>mts/2026/08/
+  mts_table_1.json
+  ...
+  mts_table_9.json
+  manifest.json</code></pre>
+      <p>Each manifest lists the nine file keys, SHA-256 hashes, and row counts. In S3 mode the manifest is written after the table files; identical content is skipped on reruns. The local mode writes the same report structure to disk. The hashes identify the serialized staged files, not the original API responses.</p>
+
+      <h3 id="mts-validation">2. Validate before loading</h3>
+      <p>The Glue job discovers manifests beneath a selected <code>mts</code>, <code>mts/YYYY</code>, or <code>mts/YYYY/MM</code> prefix and processes them in chronological key order. It loads existing staged months; it does not download missing ones.</p>
+      <ul>
+        <li>Require the expected manifest path and exactly the nine table files for the report month.</li>
+        <li>Verify staged bytes against manifest hashes, then check nonempty row counts against both the manifest and payload metadata.</li>
+        <li>Check report dates, every row's column set, and declared metadata types against explicit schemas reviewed against the August 2026 feed.</li>
+        <li>Validate every value conversion and check all target schemas before replacing any table's report data.</li>
+      </ul>
+      <p>Validation runs for all nine source tables before the report's data writes. Unexpected source or target schemas stop the job for explicit review. A source object larger than 32 MiB is rejected; processing holds one report's payloads in driver memory.</p>
+
+      <h3 id="mts-transformations">3. Convert types and record provenance</h3>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Scrollable MTS transformation table">
+        <table>
+          <caption>MTS lakehouse transformations</caption>
+          <thead><tr><th scope="col">Input</th><th scope="col">Stored representation</th><th scope="col">Rule</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Currency strings</th><td><code>decimal(38,2)</code></td><td>Use exact decimal conversion. Reject nonfinite, out-of-range, or precision-losing values. Preserve source units and signs.</td></tr>
+            <tr><th scope="row">JSON null or literal <code>"null"</code></th><td>SQL NULL</td><td>Missing values remain missing, rather than becoming zero.</td></tr>
+            <tr><th scope="row">ISO report date</th><td><code>date</code></td><td>Validate <code>YYYY-MM-DD</code> and parse a calendar date.</td></tr>
+            <tr><th scope="row">Calendar and fiscal components; source line number</th><td>Integers</td><td>Validate integer syntax and allowed ranges.</td></tr>
+            <tr><th scope="row">Descriptions, identifiers, and hierarchy codes</th><td>Strings</td><td>Preserve text, leading zeros, and sequences such as <code>2.10</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Ingestion does not aggregate rows, recalculate Treasury totals or net amounts, adjust for inflation, scale amounts, or join other datasets.</p>
+      <p>Each row also receives <code>source_bucket</code>, <code>source_key</code>, <code>source_version_id</code>, <code>source_sha256</code>, <code>source_url</code>, <code>manifest_key</code>, <code>manifest_version_id</code>, <code>batch_id</code>, <code>transform_version</code>, and <code>ingested_at</code>. The batch ID is the manifest's SHA-256 hash, transformation version is currently <code>1</code>, and ingestion time is recorded in UTC. Version IDs are captured when available.</p>
+
+      <h3 id="mts-storage">4. Store reports and apply corrections</h3>
+      <p>The job creates missing Iceberg format v2 tables named <code>mts_table_1</code> through <code>mts_table_9</code>, in the configurable <code>silver_mts</code> namespace by default. Each table is partitioned by <code>record_date</code>.</p>
+      <p>For each table, the job atomically replaces the selected report date and checks the resulting row count. This prevents duplicate reports on reruns and removes rows absent from a corrected report. Other report dates remain intact. Rerunning unchanged data still creates new table snapshots and ingestion timestamps.</p>
+      <p class="note">There is no transaction across all nine lakehouse tables. A failure can leave a partially updated report or completed earlier months. Wait for the entire job to succeed before exporting or consuming the report. After resolving a failure, rerun the affected month or range; avoid concurrent writers during ingestion.</p>
+      <p>The staging bucket is private, encrypted, and versioned in the supplied template. Superseded object versions expire after 90 days. The downloader supplies hashes but does not pin file version IDs in its manifest. Replaced source files may therefore prevent replay from an old manifest, even though the loader records the versions it actually reads.</p>
+
+      <h3 id="mts-exports">5. Query, export, and analyze</h3>
+      <p>Athena queries the lakehouse through its catalog integration and configured workgroup. Query results are stored separately from the source tables in a private S3 results bucket. Queries do not write their results back into the lakehouse.</p>
+      <ul>
+        <li><strong>Named CSV exports:</strong> the optional Glue export job queries all nine tables, selecting source fields and lineage without filtering, joining, or aggregation. It waits for all queries to succeed before copying the results to named CSV files. Copies are sequential, so publication of the nine files is not atomic.</li>
+        <li><strong>Local CSV workflow:</strong> Athena export scripts can copy CSV results into a new run folder. The local download helper fetches all nine files before invoking the combined PostgreSQL loader. The SQL loader replaces all nine destination tables in one transaction using client-side <code>\copy</code>; CSV column order must match its schema.</li>
+        <li><strong>JSON Lines bundle workflow:</strong> a separate tool exports selected tables into an offline bundle with schemas, row counts, checksums, and query IDs. Its PostgreSQL importer validates the bundle and destination schemas, then replaces the selected tables in one transaction. Decimals remain exact and missing values retain their distinction from text.</li>
+      </ul>
+      <p>Each Athena query reads its own table snapshot. These exports do not guarantee a common snapshot across nine tables; keep ingestion idle while exporting and use only completed exports.</p>
+      <p>The <a href="net-income.html">Net Income dashboard</a> embeds a separately published Tableau Public visualization of Table 4 net receipts. Workbook calculations, filters, joins, formatting, and refresh history are not available in this repository for verification. The ingestion rules documented above do not certify the workbook's transformations.</p>
+
+      <h3 id="mts-refresh">6. Refresh behavior and interpretation</h3>
+      <p>The staging template defaults to a configurable EventBridge download schedule on the 20th of each month at 18:00 UTC. Glue ingestion is manually invoked, and exports and dashboard publication are separate steps. A successful scheduled download does not establish that the website's dashboard has refreshed.</p>
+      <p>The table guides describe an August 2026 reference snapshot. Check dashboard coverage independently. Report dates, ingestion timestamps, and publication dates describe different events.</p>
+      <p>MTS contains headings, detail lines, subtotals, totals, and multiple period measures. Summing across hierarchy levels can double-count amounts; summing successive fiscal-year-to-date values can repeatedly count the same activity. Choose the intended period, measure, and hierarchy level using the table guides. The implemented pipeline does not link spending to legislation or establish policy causation.</p>
+
+      <details>
+        <summary>MTS implementation files in the repository</summary>
+        <p>Paths below are relative to the repository root.</p>
+        <ul>
+          <li>Download: <code>mts/lambda/mts_download/mts_feeds_monthly_download.py</code></li>
+          <li>Staging infrastructure: <code>shared/feeds_staging/feeds_staging_iac.yaml</code></li>
+          <li>Validation and lakehouse load: <code>mts/glue/mts_load/mts_to_tables.py</code></li>
+          <li>Lakehouse infrastructure: <code>mts/mts_lakehouse/mts_lakehouse_iac.yaml</code></li>
+          <li>Named CSV export: <code>mts/glue/mts_export/export_mts_csv.py</code></li>
+          <li>Local CSV export and import: <code>mts/local_data/athena_export/</code> and <code>mts/local_data/mts_load_to_postgres/</code></li>
+          <li>Offline bundle export/import: <code>tools/mts_postgres/mts_postgres.py</code></li>
+          <li>Dashboard embed: <code>static content/net-income.html</code></li>
+        </ul>
+      </details>
+    </section>
+
+    <section aria-labelledby="future-sources">
+      <h2 id="future-sources">Future data sources</h2>
+      <p><strong>Census data is a possible future source; no Census pipeline is implemented or described here.</strong> No specific Census dataset, endpoint, geographic coverage, or update schedule has been selected for this page.</p>
+      <p>As sources are added, each will receive its own section documenting the publisher and selected dataset, coverage and refresh schedule, collection process, validation rules, transformations, provenance, correction handling, and downstream uses. Source-specific limitations will be documented alongside those rules.</p>
+      <p>Any future analysis combining sources will also need to explain its join keys, geographic and time alignment, units, and treatment of unmatched records. MTS processing rules should not be assumed to apply to another source.</p>
+    </section>
+
+    <section aria-labelledby="delivery">
+      <h2 id="delivery">Shared website delivery</h2>
+      <p>The website consists of static HTML and CSS. The hosting template serves an existing private S3 bucket through CloudFront using Origin Access Control and redirects viewer HTTP requests to HTTPS. Data processing and website publishing are separate operations; loading a table does not regenerate these pages or publish a Tableau workbook.</p>
+      <p><a href="govt-data-overview.html">Explore government data sources</a> &middot; <a href="about.html">About the project</a></p>
+    </section>
+  </main>
+  <footer>Accountable Government &middot; Public evidence. Clear context. Constructive discourse.</footer>
+</body>
+</html>
