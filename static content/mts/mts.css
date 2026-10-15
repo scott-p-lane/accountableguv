@@ -8,3 +8,11 @@
 .dashboard-viewport{width:100%;height:clamp(640px,80vh,1000px);overflow:auto}
 .dashboard-viewport tableau-viz{display:block;width:100%;height:100%}
 @media(max-width:600px){.dashboard-panel{padding:.75rem}.dashboard-viewport{height:800px;height:max(800px,85svh)}.dashboard-heading{gap:.5rem}}
+
+.dashboard-directory{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));gap:1.25rem;margin:1.5rem 0}
+.dashboard-tile{display:block;overflow:hidden;background:var(--white);border:1px solid var(--line);border-top:4px solid var(--green);border-radius:.3rem;color:var(--ink);text-decoration:none}
+.dashboard-tile:hover{background:#e6eee8;border-color:var(--green)}
+.dashboard-tile img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:contain;background:#e6eee8}
+.dashboard-tile-content{padding:1.25rem}
+.dashboard-tile h3{margin:0 0 .5rem;color:var(--green);font-size:1.25rem;text-decoration:underline;text-underline-offset:.2em}
+.dashboard-tile p{margin:0}
