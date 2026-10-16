@@ -1,13 +1,13 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Serve an existing private S3 static-content bucket through CloudFront OAC.
+Description: Serve a new default or existing private S3 static-content bucket through CloudFront OAC.
 
 Parameters:
   StaticContentBucketName:
     Type: String
-    Description: Existing bucket in this account and stack region; enter its actual S3 name (no spaces).
-    MinLength: 3
+    Default: ''
+    Description: Existing bucket in this account and stack region; leave empty to create acctguv-static-content.
     MaxLength: 63
-    AllowedPattern: '^[a-z0-9][a-z0-9.-]*[a-z0-9]$'
+    AllowedPattern: '^$|^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$'
   DefaultRootObject:
     Type: String
     Default: home.html
@@ -15,7 +15,27 @@ Parameters:
     MinLength: 1
     AllowedPattern: '^[^/].*$'
 
+Conditions:
+  CreateStaticContentBucket: !Equals [!Ref StaticContentBucketName, '']
+
 Resources:
+  StaticContentBucket:
+    Type: AWS::S3::Bucket
+    Condition: CreateStaticContentBucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: acctguv-static-content
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
   StaticContentOriginAccessControl:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
@@ -55,7 +75,10 @@ Resources:
         DefaultRootObject: !Ref DefaultRootObject
         Origins:
           - Id: StaticContentS3Origin
-            DomainName: !Sub '${StaticContentBucketName}.s3.${AWS::Region}.${AWS::URLSuffix}'
+            DomainName: !If
+              - CreateStaticContentBucket
+              - !GetAtt StaticContentBucket.RegionalDomainName
+              - !Sub '${StaticContentBucketName}.s3.${AWS::Region}.${AWS::URLSuffix}'
             OriginAccessControlId: !Ref StaticContentOriginAccessControl
             S3OriginConfig:
               OriginAccessIdentity: ''
@@ -72,7 +95,7 @@ Resources:
   StaticContentBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
-      Bucket: !Ref StaticContentBucketName
+      Bucket: !If [CreateStaticContentBucket, !Ref StaticContentBucket, !Ref StaticContentBucketName]
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -81,7 +104,10 @@ Resources:
             Principal:
               Service: cloudfront.amazonaws.com
             Action: s3:GetObject
-            Resource: !Sub 'arn:${AWS::Partition}:s3:::${StaticContentBucketName}/*'
+            Resource: !If
+              - CreateStaticContentBucket
+              - !Sub '${StaticContentBucket.Arn}/*'
+              - !Sub 'arn:${AWS::Partition}:s3:::${StaticContentBucketName}/*'
             Condition:
               StringEquals:
                 AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${StaticContentDistribution}'
@@ -90,13 +116,22 @@ Resources:
             Principal: '*'
             Action: s3:*
             Resource:
-              - !Sub 'arn:${AWS::Partition}:s3:::${StaticContentBucketName}'
-              - !Sub 'arn:${AWS::Partition}:s3:::${StaticContentBucketName}/*'
+              - !If
+                - CreateStaticContentBucket
+                - !GetAtt StaticContentBucket.Arn
+                - !Sub 'arn:${AWS::Partition}:s3:::${StaticContentBucketName}'
+              - !If
+                - CreateStaticContentBucket
+                - !Sub '${StaticContentBucket.Arn}/*'
+                - !Sub 'arn:${AWS::Partition}:s3:::${StaticContentBucketName}/*'
             Condition:
               Bool:
                 aws:SecureTransport: 'false'
 
 Outputs:
+  OriginBucketName:
+    Description: S3 bucket used as the CloudFront origin.
+    Value: !If [CreateStaticContentBucket, !Ref StaticContentBucket, !Ref StaticContentBucketName]
   DistributionId:
     Description: Distribution ID for cache invalidations.
     Value: !Ref StaticContentDistribution
