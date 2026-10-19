@@ -1,13 +1,16 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Explore federal net receipts with the interactive Net Income dashboard, based on Monthly Treasury Statement Table 4.">
-  <title>Net Income | Accountable Government</title>
+  <meta name="description"
+    content="Explore federal net receipts with the interactive Net Income dashboard, based on Monthly Treasury Statement Table 4.">
+  <title>U.S. Net Income | Accountable Guv</title>
   <link rel="stylesheet" href="mts/mts.css">
   <script type="module" src="https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js"></script>
 </head>
+
 <body class="net-income-page">
   <a class="skip" href="#content">Skip to main content</a>
   <header>
@@ -18,24 +21,40 @@
     </nav>
   </header>
   <main id="content">
-    <h1>Net Income</h1>
-    <p>This dashboard explores federal net receipts—receipts after refunds—from Monthly Treasury Statement Table 4. Use its controls to compare reporting periods, and check the coverage dates shown in the dashboard.</p>
-<nav aria-label="Dashboard views"><a href="#yearly-comparisons">Yearly comparisons</a><a href="mts/table-4.html#dashboard">All Table 4 dashboards</a></nav>
-<!-- Add future quarterly/monthly views as sections with unique heading, help, and viz IDs. -->
-<section class="dashboard-panel" aria-labelledby="yearly-comparisons">
-  <div class="dashboard-heading">
-    <h2 id="yearly-comparisons">Net Income: Yearly Comparisons</h2>
-    <a href="https://public.tableau.com/app/profile/scott.lane7297/viz/mts_analysis/NetIncomeYearlyComparisons" target="_blank" rel="noopener noreferrer">Open dashboard on Tableau Public (new tab)</a>
-  </div>
-  <p id="dashboard-help">Compare federal net receipts across fiscal years using the dashboard's interactive controls. Check its coverage dates before comparing incomplete periods. If the dashboard does not load or is difficult to use on your device, open it directly on Tableau Public.</p>
-  <div class="dashboard-viewport">
-    <tableau-viz id="yearly-comparisons-viz" src="https://public.tableau.com/views/mts_analysis/NetIncomeYearlyComparisons" width="100%" height="100%" toolbar="bottom" hide-tabs aria-label="Net Income yearly comparisons dashboard" aria-describedby="dashboard-help"></tableau-viz>
-  </div>
-  <noscript><p>The interactive dashboard requires JavaScript. Use the link above to view it on Tableau Public.</p></noscript>
-</section>
+    <h1>U.S. Net Income</h1>
+    <p>These dashboards summarize the net income that U.S. government has. The data is taken directly from the Monthly
+      Treasury Statements (MTS)
+      that are published monthly by the U.S. Department of the Treasury. The dashboards use "Receipts of the U.S.
+      Government" (Table 4).
+      Table 4 allows us to review both aggregate incoming funds as well as their sources.</p>
+    <nav aria-label="Dashboard views"><a href="#yearly-comparisons">Yearly comparisons</a><a
+        href="mts/table-4.html#dashboard">All Table 4 dashboards</a></nav>
+    <!-- Add future quarterly/monthly views as sections with unique heading, help, and viz IDs. -->
+    <section class="dashboard-panel" aria-labelledby="yearly-comparisons">
+      <div class="dashboard-heading">
+        <h2 id="yearly-comparisons">Net Income: Yearly Comparisons</h2>
+      </div>
+      <p id="dashboard-help">Compare federal net receipts across fiscal years using the dashboard's interactive
+        controls. Check its coverage dates before comparing incomplete periods. If the dashboard does not load or is
+        difficult to use on your device, open it <a
+          href="https://public.tableau.com/views/mts_analysis/NetIncomeYearlyComparisons" target="_blank"
+          rel="noopener noreferrer">directly</a>.<b>When comparing current fiscal year with prior, ensure you are
+          comparing complete periods. In other words, don't compare months in prior years that are not yet present in
+          the current fiscal year data.</b></p>
+
+      <div class="dashboard-viewport">
+        <tableau-viz id="yearly-comparisons-viz"
+          src="https://public.tableau.com/views/mts_analysis/NetIncomeYearlyComparisons" width="100%" height="100%"
+          toolbar="bottom" hide-tabs aria-label="Net Income yearly comparisons dashboard"
+          aria-describedby="dashboard-help"></tableau-viz>
+      </div>
+
+    </section>
     <p>Quarterly and monthly views are planned for this page.</p>
-    <p>About the data: <a href="mts/table-4.html#fields">Table 4 field documentation</a> · <a href="mts/mts-overview.html">Monthly Treasury Statement overview</a>.</p>
+    <p>About the data: <a href="mts/table-4.html#fields">Table 4 field documentation</a> · <a
+        href="mts/mts-overview.html">Monthly Treasury Statement overview</a>.</p>
   </main>
-  <footer>Accountable Government · Public evidence. Clear context. Constructive discourse.</footer>
+  <footer>Accountable Government · Follow the Money - Income</footer>
 </body>
+
 </html>
