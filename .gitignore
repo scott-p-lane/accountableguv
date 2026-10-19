@@ -3,3 +3,4 @@ __pycache__/
 exports/
 mts/local_data/mts_feeds
 mts/local_data/mts_export
+tools/upload-static-content.ps1
