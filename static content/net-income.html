@@ -9,6 +9,7 @@
   <title>U.S. Net Income | Accountable Guv</title>
   <link rel="stylesheet" href="mts/mts.css">
   <script type="module" src="https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js"></script>
+  <script type="module" src="tableau-dashboards.js"></script>
 </head>
 
 <body class="net-income-page">
@@ -38,15 +39,14 @@
         controls. Though the site is using the data from the treasury, when presenting it, we round the values (to the
         nearest billion) for clarity. Check its coverage dates before comparing incomplete periods. If the dashboard does
         not load or is
-        difficult to use on your device, open it <a
-          href="https://public.tableau.com/views/mts_analysis/NetIncomeYearlyComparisons" target="_blank"
+        difficult to use on your device, open it <a data-tableau-dashboard="net-income-yearly" target="_blank"
           rel="noopener noreferrer">directly</a>.<b>When comparing current fiscal year with prior, ensure you are
           comparing complete periods. In other words, don't compare months in prior years that are not yet present in
           the current fiscal year data.</b></p>
 
       <div class="dashboard-viewport">
         <tableau-viz id="yearly-comparisons-viz"
-          src="https://public.tableau.com/views/mts_analysis/NetIncomeYearlyComparisons" width="100%" height="100%"
+          data-tableau-dashboard="net-income-yearly" width="100%" height="100%"
           toolbar="bottom" hide-tabs aria-label="Net Income yearly comparisons dashboard"
           aria-describedby="dashboard-help"></tableau-viz>
       </div>

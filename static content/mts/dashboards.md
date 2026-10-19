@@ -6,7 +6,7 @@
 
 1. Create a dedicated HTML page (use `../net-income.html` as an example), linking to `mts.css` with the correct relative path.
 2. Add its title, introduction, and one or more `dashboard-panel` sections. Each section needs unique heading, help, and `tableau-viz` IDs, and an `aria-labelledby` that matches its heading.
-3. Load the Tableau v3 module once per page. Use `https://public.tableau.com/views/WORKBOOK/VIEW` for the embed; use the public sharing URL for the direct link. Keep the direct link and JavaScript fallback.
+3. Load the Tableau v3 module and `../tableau-dashboards.js` once per page. Add the dashboard's Tableau embed URL and public sharing URL to the shared registry using a stable identifier, then use that identifier as `data-tableau-dashboard` on the `tableau-viz` and direct-link elements. The registry assigns the embed URL to the viz and the sharing URL to the direct link.
 4. Add a `dashboard-tile` link inside the directory's `dashboard-directory` grid. Point it at the dedicated page, provide a title and summary with unique IDs, and update its thumbnail. Tableau Public's preview URL follows `https://public.tableau.com/static/images/WORKBOOK_FIRST_TWO_CHARACTERS/WORKBOOK/VIEW/1.png`. Verify that the image loads. A local screenshot can also be used.
 5. Keep thumbnail alt text empty when it repeats the linked title; keep the title and summary readable if the image fails.
 
