@@ -33,6 +33,15 @@ an explicit date range as described below.
 
 ## Deployment and schedule
 
+To run Glue after a successful scheduled download, set `MtsGlueJobName` in
+[`feeds_staging_iac.yaml`](../../../../aws_shared/for_feed_staging/feeds_staging_iac.yaml)
+to the lakehouse stack's `GlueJobName` output. This routes scheduled runs through
+Step Functions, which waits for the download, passes the returned month prefix
+to Glue, and waits for the load to succeed. Manual Lambda invocations still
+download only. See the [workflow setup and retry behavior](../../../../aws_shared/for_feed_staging/README-feeds_staging_iac_.md#automatically-load-downloaded-mts-reports).
+Lambda asynchronous retries described below apply to direct asynchronous
+invocations; the workflow manages retries for its synchronous invocations.
+
 The template `../../cloud-formation-templates/feeds_staging_iac.yaml` references
 a ZIP deployment package in S3. It creates an execution role limited to `mts/*`
 in the existing staging bucket, logs retained for 30 days, and an EventBridge monthly schedule.

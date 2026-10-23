@@ -63,6 +63,43 @@ Creating this stack will fail if that bucket already exists; this template does 
 migrate an existing bucket. Use CloudFormation resource import for a planned migration
 instead of attempting to manage the bucket from two stacks.
 
+## Automatically load downloaded MTS reports
+
+After deploying the [lakehouse stack](../../mts/aws/mts_lakehouse/mts_lakehouse_iac.yaml),
+copy its `GlueJobName` output. Update this existing feeds stack with the revised
+`feeds_staging_iac.yaml` and set **`MtsGlueJobName`** to that value. Keep the other
+parameters unchanged. The Glue job must be in the same account and region and
+configured to read this feeds bucket. No Lambda ZIP rebuild is needed.
+
+With this parameter set, the monthly rule starts a Standard Step Functions
+workflow instead of invoking Lambda directly:
+
+1. Invoke the downloader synchronously and wait for a successful response.
+2. Pass its returned `prefix` (for example `mts/2026/08`) as Glue's
+   `--base_prefix`. This loads the report month, not the invocation month.
+3. Wait for Glue to finish; the workflow succeeds only when Glue succeeds.
+
+A failed download never reaches Glue. Successful downloads with unchanged
+objects still run Glue, allowing a rerun to repair a previous partial load.
+The workflow retries transient Lambda service errors and retries other task
+failures twice with backoff. Lambda's asynchronous retry configuration does not
+apply to these synchronous workflow invocations. Glue failures are not retried
+automatically; inspect the failed execution and Glue logs, resolve the issue,
+and rerun the affected month using the [loader instructions](../../mts/aws/glue/mts_load/README-mts_load.md).
+Avoid overlapping workflows or manual loads: the Glue job permits one run.
+
+The `MtsPipelineArn` stack output identifies the workflow. For a manual
+end-to-end run, start an execution there with `{}` and inspect its execution
+history. Invoking Lambda directly still downloads only. EventBridge retries
+delivery failures when starting the workflow; it does not retry a workflow that
+has already started and subsequently fails.
+
+Leave `MtsGlueJobName` empty to retain download-only scheduling. This supports
+deploying the feeds stack before the lakehouse stack without a circular stack
+dependency. Updating the stack does not immediately start a run. Deployment
+also requires Step Functions and the additional IAM role/pass-role permissions.
+The workflow uses the [AWS Glue synchronous integration](https://docs.aws.amazon.com/step-functions/latest/dg/connect-glue.html).
+
 ## Included configuration
 
 - Versioning, S3-managed encryption, blocked public access, disabled ACLs, and HTTPS-only access.
