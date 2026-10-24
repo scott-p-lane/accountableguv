@@ -1,7 +1,7 @@
 const tableauDashboards = Object.freeze({
   'net-income-yearly': {
-    embed: 'https://public.tableau.com/views/mts_analysis/USNetIncomeYearly?:showVizHome=no',
-    share: 'https://public.tableau.com/app/profile/scott.lane7297/viz/mts_analysis/USNetIncomeYearly',
+    embed: 'https://public.tableau.com/views/USIncomeandSpending-YoYComparisons/SpendingDashboard?:showVizHome=no',
+    share: 'https://public.tableau.com/app/profile/scott.lane7297/viz/USIncomeandSpending-YoYComparisons/SpendingDashboard',
   },
 });
 

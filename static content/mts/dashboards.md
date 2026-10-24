@@ -10,6 +10,12 @@
 4. Add a `dashboard-tile` link inside the directory's `dashboard-directory` grid. Point it at the dedicated page, provide a title and summary with unique IDs, and update its thumbnail. Tableau Public's preview URL follows `https://public.tableau.com/static/images/WORKBOOK_FIRST_TWO_CHARACTERS/WORKBOOK/VIEW/1.png`. Verify that the image loads. A local screenshot can also be used.
 5. Keep thumbnail alt text empty when it repeats the linked title; keep the title and summary readable if the image fails.
 
+Load the shared registry with `<script defer src="../tableau-dashboards.js"></script>` (use `tableau-dashboards.js` for pages at the site root). It is a classic script; `defer` lets it assign links after the HTML has been parsed, including during local file previews. Keep Tableau's embedding API script as `type="module"`.
+
+Use `https://public.tableau.com/views/WORKBOOK/VIEW?:showVizHome=no` for `embed`, and the public `/app/profile/.../viz/WORKBOOK/VIEW` URL for `share`. These are different URL formats. Changes are applied at runtime; they do not rewrite the HTML source. For a full Tableau preview, serve the site over HTTP.
+
+When publishing registry changes, upload `tableau-dashboards.js` as well as any changed HTML. The site's CloudFront distribution caches files for one hour by default; invalidate `/tableau-dashboards.js` (and changed HTML paths) for immediate updates. Query-string version suffixes do not bypass this distribution's cache. A browser hard refresh alone does not clear CloudFront's cache.
+
 ## Add views to Net Income
 
 Add quarterly/monthly views as additional sections in `../net-income.html`, with their own embed, narrative, and direct link. Add their section anchors to the “Dashboard views” navigation. Update the directory tile summary and remove the planned-views sentence when those views are available. Do not publish empty embeds or links for views that do not exist yet.
