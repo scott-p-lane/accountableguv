@@ -1,25 +1,24 @@
-# Extending the dashboard directory
+# Publishing a dedicated dashboard page
 
-`table-4.html#dashboard` is the Table 4 directory. It links to dedicated dashboard pages; it does not load Tableau embeds itself.
+Each published Tableau dashboard has its own HTML page. `../us-income-and-spending.html` is the dashboard directory; `../us-net-income.html` is the first dashboard and the reusable page template.
 
-## Add a dashboard
+## Create the next page
 
-1. Create a dedicated HTML page (use `../us-income-and-spending.html` as an example), linking to `mts.css` with the correct relative path.
-2. Add its title, introduction, and one or more `dashboard-panel` sections. Each section needs unique heading, help, and `tableau-viz` IDs, and an `aria-labelledby` that matches its heading.
-3. Load the Tableau v3 module and `../tableau-dashboards.js` once per page. Add the dashboard's Tableau embed URL and public sharing URL to the shared registry using a stable identifier, then use that identifier as `data-tableau-dashboard` on the `tableau-viz` and direct-link elements. The registry assigns the embed URL to the viz and the sharing URL to the direct link.
-4. Add a `dashboard-tile` link inside the directory's `dashboard-directory` grid. Point it at the dedicated page, provide a title and summary with unique IDs, and update its thumbnail. Tableau Public's preview URL follows `https://public.tableau.com/static/images/WORKBOOK_FIRST_TWO_CHARACTERS/WORKBOOK/VIEW/1.png`. Verify that the image loads. A local screenshot can also be used.
-5. Keep thumbnail alt text empty when it repeats the linked title; keep the title and summary readable if the image fails.
+1. Copy `static content/us-net-income.html` to a new descriptive filename in `static content/`. Keep one published dashboard per page. Keeping the file at the site root preserves the template's relative asset and navigation paths.
+2. Update the document title, description, main heading, introduction, dashboard heading, and accessible dashboard label.
+3. Paste the supplied Tableau sharing link into the “Open in Tableau Public” anchor. Set the `tableau-viz` `src` to the same workbook and view using the embed format `https://public.tableau.com/views/WORKBOOK/VIEW?:showVizHome=no`. Both URLs are deliberately stored directly in the HTML page. The template loads Tableau's v3 module once and does not need the shared URL registry.
+4. Replace the “Notes and observations” content with reading guidance and reviewed findings for that dashboard. Include reporting periods, filters, and comparison context. Leave a clear empty-state sentence until observations are ready; do not invent findings.
+5. Update “Data sources and processing” with the exact source tables, field definitions, collection, validation, transformation, storage, export, and refresh documentation used. Distinguish source processing from workbook calculations and filters.
+6. Update “Related pages” with relevant guides and analyses. Retain a return link to the dashboard directory.
+7. Add a `dashboard-tile` to `us-income-and-spending.html`, with a title, summary, and image. Use unique heading and summary IDs. Add a link from any relevant source-table directory, such as `mts/table-4.html#dashboard`. Link directly to the dedicated dashboard page.
+8. Keep thumbnail alt text empty when the image repeats the linked title. Use a relevant local illustration or an up-to-date verified dashboard preview. Do not imply illustrative graphics are actual data.
 
-Load the shared registry with `<script defer src="../tableau-dashboards.js"></script>` (use `tableau-dashboards.js` for pages at the site root). It is a classic script; `defer` lets it assign links after the HTML has been parsed, including during local file previews. Keep Tableau's embedding API script as `type="module"`.
+## Layout
 
-Use `https://public.tableau.com/views/WORKBOOK/VIEW?:showVizHome=no` for `embed`, and the public `/app/profile/.../viz/WORKBOOK/VIEW` URL for `share`. These are different URL formats. Changes are applied at runtime; they do not rewrite the HTML source. For a full Tableau preview, serve the site over HTTP.
+The shared `mts/mts.css` provides a wide `.dashboard-page` main area, an embedded `.dashboard-panel`, and `.dashboard-detail` sections beneath it. The dashboard has its own scrollable viewport on smaller screens. The page's anchor navigation links to the dashboard, notes, sources, and related pages.
 
-When publishing registry changes, upload `tableau-dashboards.js` as well as any changed HTML. The site's CloudFront distribution caches files for one hour by default; invalidate `/tableau-dashboards.js` (and changed HTML paths) for immediate updates. Query-string version suffixes do not bypass this distribution's cache. A browser hard refresh alone does not clear CloudFront's cache.
+## Verify and publish
 
-## Add views to Net Income
+Check local links and anchors, unique IDs, matching Tableau workbook/view URLs, and descriptive headings. Serve the site over HTTP to verify the live Tableau embed, filters, direct link, keyboard navigation, and desktop/phone layout. An accessible direct link remains available if the embed fails or JavaScript is disabled.
 
-Add quarterly/monthly views as additional sections in `../us-income-and-spending.html`, with their own embed, narrative, and direct link. Add their section anchors to the “Dashboard views” navigation. Update the directory tile summary and remove the planned-views sentence when those views are available. Do not publish empty embeds or links for views that do not exist yet.
-
-## Verify
-
-Check thumbnail loading, whole-tile navigation with mouse and keyboard, unique IDs and working local anchors, dashboard rendering, and desktop/phone widths. Retain the field dictionary and its existing anchors below the directory.
+Publish the new page, updated directory and source-table links, and any changed styles or images. CloudFront caches static files; invalidate changed paths when immediate updates are needed.

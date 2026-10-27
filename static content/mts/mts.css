@@ -16,3 +16,10 @@
 .dashboard-tile-content{padding:1.25rem}
 .dashboard-tile h3{margin:0 0 .5rem;color:var(--green);font-size:1.25rem;text-decoration:underline;text-underline-offset:.2em}
 .dashboard-tile p{margin:0}
+
+/* Dedicated dashboard page layout; shared by each published view. */
+.dashboard-page main{width:min(1440px,calc(100% - 2rem))}
+.dashboard-sections{gap:.75rem 1.5rem;margin:1.5rem 0}
+.dashboard-detail{margin-top:2.5rem;padding-top:.5rem;border-top:1px solid var(--line)}
+.dashboard-detail>p,.dashboard-detail>ul{max-width:95ch}
+.dashboard-page section{scroll-margin-top:1rem}
