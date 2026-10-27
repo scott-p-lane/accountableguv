@@ -1,0 +1,7 @@
+/* Shared Civic Steps identity. Gold text is darkened for legibility on ivory. */
+nav{align-items:center}
+.brand{display:inline-flex;align-items:center;gap:.65rem;text-decoration:none;line-height:1.3;color:#174f3f}
+.brand-icon{display:block;width:3rem;height:3rem;flex:0 0 3rem}
+.brand-name{white-space:nowrap;font-weight:800;letter-spacing:-.025em}
+.brand-guv{color:#94670d}
+.error-brand-icon{display:block;width:5rem;height:5rem;margin-bottom:2.5rem}

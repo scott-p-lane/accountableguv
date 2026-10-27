@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <title>AccountableGuv Civic Steps</title>
+  <path d="m91 91 25 25" stroke="#174f3f" stroke-width="17" stroke-linecap="round"/>
+  <circle cx="55" cy="55" r="45" stroke="#174f3f" stroke-width="11"/>
+  <path d="M30 40 55 23 80 40Z" fill="#d8a73d" stroke="#d8a73d" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M38 47v23m17-23v23m17-23v23" stroke="#174f3f" stroke-width="8"/>
+  <rect x="33" y="75" width="44" height="6" rx="1.5" fill="#d8a73d"/>
+  <rect x="29" y="84" width="52" height="6" rx="1.5" fill="#d8a73d"/>
+</svg>
