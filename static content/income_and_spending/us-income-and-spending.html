@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="../mts/mts.css">
   <link rel="icon" type="image/svg+xml" href="../assets/civic-steps.svg">
   <link rel="stylesheet" href="../assets/brand.css">
+  <script type="module" src="https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js"></script>
 </head>
 
 <body class="income-spending-page">
@@ -24,6 +25,27 @@
   <main id="content">
     <h1>US Income and Spending</h1>
     <p class="lead">Explore federal finances through dedicated dashboard pages. Each page brings together an interactive Tableau view, notes and observations, and links to the underlying data and processing details.</p>
+    <section class="dashboard-panel" aria-labelledby="table-1-summary">
+      <div class="dashboard-heading">
+        <h2 id="table-1-summary">Table 1 Summary and Reconciliation</h2>
+        <a href="https://public.tableau.com/app/profile/scott.lane7297/viz/USIncomeandSpending-Table1Summary/TableTotalsDashboard" target="_blank" rel="noopener noreferrer">Open in Tableau Public</a>
+      </div>
+      <p id="table-1-help">Explore the Table 1 summary and the reconciliation of receipts and spending with the sums from Tables 4 and 5. If the embedded report does not load or is difficult to use on your device, open it in Tableau Public using the link above.</p>
+      <div class="dashboard-viewport">
+        <tableau-viz id="table-totals-viz"
+          src="https://public.tableau.com/views/USIncomeandSpending-Table1Summary/TableTotalsDashboard?:showVizHome=no"
+          width="100%" height="100%" toolbar="bottom" hide-tabs
+          aria-label="Table 1 summary and reconciliation dashboard" aria-describedby="table-1-help"></tableau-viz>
+      </div>
+    </section>
+    <section class="dashboard-detail" aria-labelledby="reconciliation-notes">
+      <h2 id="reconciliation-notes">Notes on reconciliation</h2>
+      <p>Table 1 values align with the sums from Table 4 (net receipts) and Table 5 (net spending) in most cases, but not always. The Reconciliation table shows when the values differ and by how much.</p>
+      <p>The differences observed in this project's comparisons are infrequent and marginal. They should not be a concern for the broad trends and comparisons presented here; the reconciliation makes them visible for transparency.</p>
+      <!-- Add the detailed explanation of the differences here when ready. -->
+      <p>A fuller explanation of these differences will be added. See the <a href="../mts/table-1-reconciliation.html">Table 1 reconciliation methodology</a> for the current approach.</p>
+      <p>Source references: <a href="../mts/table-1.html">Table 1 summary</a>, <a href="../mts/table-4.html#fields">Table 4 receipts</a>, and <a href="../mts/table-5.html#fields">Table 5 spending</a>.</p>
+    </section>
     <section aria-labelledby="dashboards">
       <h2 id="dashboards">Dashboards</h2>
       <div class="dashboard-directory">
@@ -32,6 +54,20 @@
           <div class="dashboard-tile-content">
             <h3 id="net-income-title">US Net Income</h3>
             <p id="net-income-summary">Compare federal net receipts across fiscal years using MTS Table 4. Explore the dashboard, reading notes, and source documentation.</p>
+          </div>
+        </a>
+        <a class="dashboard-tile" href="us-spending.html" aria-labelledby="spending-title" aria-describedby="spending-summary">
+          <img src="../assets/us-income-and-spending.svg" alt="" width="800" height="450">
+          <div class="dashboard-tile-content">
+            <h3 id="spending-title">US Spending</h3>
+            <p id="spending-summary">Compare federal spending across fiscal years using MTS Table 5. Explore the dashboard, reading notes, and source documentation.</p>
+          </div>
+        </a>
+        <a class="dashboard-tile" href="us-deficit.html" aria-labelledby="deficit-title" aria-describedby="deficit-summary">
+          <img src="../assets/us-income-and-spending.svg" alt="" width="800" height="450">
+          <div class="dashboard-tile-content">
+            <h3 id="deficit-title">US Deficit</h3>
+            <p id="deficit-summary">Explore the gap between federal spending and net receipts using MTS Tables 4 and 5, with notes and source documentation.</p>
           </div>
         </a>
       </div>

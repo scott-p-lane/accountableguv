@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Explore the US deficit with an interactive Tableau dashboard, notes, and documentation for Treasury receipts and spending data.">
+  <title>AccountableGuv - US Deficit</title>
+  <link rel="stylesheet" href="../mts/mts.css">
+  <link rel="stylesheet" href="../assets/brand.css">
+  <link rel="icon" type="image/svg+xml" href="../assets/civic-steps.svg">
+  <script type="module" src="https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js"></script>
+</head>
+<body class="dashboard-page">
+  <a class="skip" href="#content">Skip to main content</a>
+  <header>
+    <nav aria-label="Primary navigation">
+      <a class="brand" href="../home.html"><img class="brand-icon" src="../assets/civic-steps.svg" alt="" width="48" height="48"><span class="brand-name">Accountable<span class="brand-guv">Guv</span></span></a>
+      <a href="us-income-and-spending.html">US Income and Spending</a>
+      <a href="../mts/mts-overview.html">Monthly Treasury Statements</a>
+      <a href="../about.html">About</a>
+    </nav>
+  </header>
+  <main id="content">
+    <p class="eyebrow">US Income and Spending / Dashboard</p>
+    <h1>US Deficit</h1>
+    <p class="lead">Explore the gap between federal spending and net receipts across fiscal years. A deficit occurs when spending exceeds receipts; a surplus occurs when receipts exceed spending. This project uses Monthly Treasury Statement (MTS) Tables 4 and 5 for those measures.</p>
+    <nav class="dashboard-sections" aria-label="On this page">
+      <a href="#notes">Notes and observations</a>
+      <a href="#sources">Data sources and processing</a>
+      <a href="#related">Related pages</a>
+    </nav>
+
+    <!-- Reuse this page for one published dashboard. Update the title, both Tableau URLs, notes, and source links. -->
+    <section class="dashboard-panel" aria-labelledby="dashboard">
+      <div class="dashboard-heading">
+        <h2 id="dashboard">Deficit: Yearly Comparisons</h2>
+        <!-- Tableau public sharing URL: replace this when publishing a different dashboard. -->
+        <a href="https://public.tableau.com/app/profile/scott.lane7297/viz/USIncomeandSpending-YoYComparisons/DeficitDashboard" target="_blank" rel="noopener noreferrer">Open in Tableau Public</a>
+      </div>
+      <p id="dashboard-help">Use the dashboard's controls to explore the gap between federal spending and net receipts. If the embedded view does not load or is difficult to use on your device, open it in Tableau Public using the link above.</p>
+      <div class="dashboard-viewport">
+        <!-- Tableau embed URL: keep this view consistent with the public sharing link above. -->
+        <tableau-viz id="deficit-viz"
+          src="https://public.tableau.com/views/USIncomeandSpending-YoYComparisons/DeficitDashboard?:showVizHome=no"
+          width="100%" height="100%" toolbar="bottom" hide-tabs
+          aria-label="US Deficit yearly comparisons dashboard" aria-describedby="dashboard-help"></tableau-viz>
+      </div>
+    </section>
+
+    <section class="dashboard-detail" aria-labelledby="notes">
+      <h2 id="notes">Notes and observations</h2>
+      <h3>Reading the data</h3>
+      <ul>
+        <li>Compare complete, equivalent periods. Do not compare a partial current fiscal year against a full prior fiscal year.</li>
+        <li>Check the dashboard's coverage dates and active filters before drawing conclusions.</li>
+        <li>Displayed values are rounded to the nearest billion for clarity.</li>
+        <li>Compare Table 5 net outlays with Table 4 net receipts for the same reporting period. Spending minus receipts is positive for a deficit and negative for a surplus; check the dashboard's labels for its display convention.</li>
+      </ul>
+      <p>A deficit measures the gap over a reporting period; it is not the total outstanding federal debt. Differences from the official Table 1 summary are explained in the <a href="../mts/table-1-reconciliation.html">reconciliation methodology</a>.</p>
+      <h3>Observations</h3>
+      <!-- Add findings here with the relevant reporting period, filters, comparison, and supporting evidence. -->
+      <p>Dashboard-specific observations will be added as the data is reviewed.</p>
+    </section>
+
+    <section class="dashboard-detail" aria-labelledby="sources">
+      <h2 id="sources">Data sources and processing</h2>
+      <p>This dashboard brings together <strong>MTS Table 4: Receipts of the U.S. Government</strong> and <strong>MTS Table 5: Outlays of the U.S. Government</strong>, published by the U.S. Department of the Treasury. Table 4 supplies net receipts after refunds; Table 5 supplies net outlays after applicable receipt offsets. Compare these measures for matching reporting periods to examine the deficit or surplus.</p>
+      <ul>
+        <li><a href="https://fiscaldata.treasury.gov/datasets/monthly-treasury-statement/">Official Treasury dataset</a> and <a href="https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/mts/mts_table_4">Table 4 API endpoint</a>.</li>
+        <li><a href="https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/mts/mts_table_5">Table 5 API endpoint</a> and <a href="../mts/table-5.html#fields">Table 5 field documentation</a>: spending, applicable receipts, net outlays, and reporting periods.</li>
+        <li><a href="../mts/table-4.html#fields">Table 4 field documentation</a>: source fields, reporting periods, and units.</li>
+        <li><a href="../implementation-details.html#mts-collection">Collection</a> and <a href="../implementation-details.html#mts-validation">validation</a>: how reports are downloaded and checked before loading.</li>
+        <li><a href="../implementation-details.html#mts-transformations">Transformations and provenance</a>: type conversion and source tracking.</li>
+        <li><a href="../implementation-details.html#mts-storage">Storage and corrections</a>, <a href="../implementation-details.html#mts-exports">exports and analysis</a>, and <a href="../implementation-details.html#mts-refresh">refresh behavior</a>.</li>
+      </ul>
+      <p class="note">The data pipeline and the published Tableau workbook are separate stages. Pipeline documentation does not verify the workbook's calculations, filters, joins, or refresh history. Check the published view's coverage before interpreting results.</p>
+    </section>
+
+    <section class="dashboard-detail" aria-labelledby="related">
+      <h2 id="related">Related pages</h2>
+      <ul>
+        <li><a href="us-net-income.html">US Net Income</a> — explore the net receipts side of the comparison.</li>
+        <li><a href="us-spending.html">US Spending</a> — compare federal outlays alongside net receipts.</li>
+        <li><a href="us-income-and-spending.html">US Income and Spending</a> — return to the dashboard directory.</li>
+        <li><a href="../mts/mts-overview.html">Monthly Treasury Statements</a> — explore the source tables and reading guide.</li>
+        <li><a href="../mts/table-1-reconciliation.html">Table 1 reconciliation</a> — why this project uses Table 4 for net income and Table 5 for net spending.</li>
+        <li><a href="../mts/deficit-and-interest.html">Federal deficit and interest</a> — context for receipts, spending, and borrowing.</li>
+      </ul>
+    </section>
+  </main>
+  <footer>AccountableGuv &middot; Public evidence. Clear context. Constructive discourse.</footer>
+</body>
+</html>
