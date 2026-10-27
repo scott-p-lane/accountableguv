@@ -5,19 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Explore US net income with an interactive Treasury receipts dashboard, notes, and source and processing documentation.">
   <title>US Net Income | AccountableGuv</title>
-  <link rel="stylesheet" href="mts/mts.css">
-  <link rel="stylesheet" href="assets/brand.css">
-  <link rel="icon" type="image/svg+xml" href="assets/civic-steps.svg">
+  <link rel="stylesheet" href="../mts/mts.css">
+  <link rel="stylesheet" href="../assets/brand.css">
+  <link rel="icon" type="image/svg+xml" href="../assets/civic-steps.svg">
   <script type="module" src="https://public.tableau.com/javascripts/api/tableau.embedding.3.latest.min.js"></script>
 </head>
 <body class="dashboard-page">
   <a class="skip" href="#content">Skip to main content</a>
   <header>
     <nav aria-label="Primary navigation">
-      <a class="brand" href="home.html"><img class="brand-icon" src="assets/civic-steps.svg" alt="" width="48" height="48"><span class="brand-name">Accountable<span class="brand-guv">Guv</span></span></a>
+      <a class="brand" href="../home.html"><img class="brand-icon" src="../assets/civic-steps.svg" alt="" width="48" height="48"><span class="brand-name">Accountable<span class="brand-guv">Guv</span></span></a>
       <a href="us-income-and-spending.html">US Income and Spending</a>
-      <a href="mts/mts-overview.html">Monthly Treasury Statements</a>
-      <a href="about.html">About</a>
+      <a href="../mts/mts-overview.html">Monthly Treasury Statements</a>
+      <a href="../about.html">About</a>
     </nav>
   </header>
   <main id="content">
@@ -67,10 +67,10 @@
       <p>This dashboard uses <strong>MTS Table 4: Receipts of the U.S. Government</strong>, published by the U.S. Department of the Treasury. The source includes receipt categories, refunds, and net receipts for the current month, fiscal year to date, and comparable prior fiscal year to date.</p>
       <ul>
         <li><a href="https://fiscaldata.treasury.gov/datasets/monthly-treasury-statement/">Official Treasury dataset</a> and <a href="https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/mts/mts_table_4">Table 4 API endpoint</a>.</li>
-        <li><a href="mts/table-4.html#fields">Table 4 field documentation</a>: source fields, reporting periods, and units.</li>
-        <li><a href="implementation-details.html#mts-collection">Collection</a> and <a href="implementation-details.html#mts-validation">validation</a>: how reports are downloaded and checked before loading.</li>
-        <li><a href="implementation-details.html#mts-transformations">Transformations and provenance</a>: type conversion and source tracking.</li>
-        <li><a href="implementation-details.html#mts-storage">Storage and corrections</a>, <a href="implementation-details.html#mts-exports">exports and analysis</a>, and <a href="implementation-details.html#mts-refresh">refresh behavior</a>.</li>
+        <li><a href="../mts/table-4.html#fields">Table 4 field documentation</a>: source fields, reporting periods, and units.</li>
+        <li><a href="../implementation-details.html#mts-collection">Collection</a> and <a href="../implementation-details.html#mts-validation">validation</a>: how reports are downloaded and checked before loading.</li>
+        <li><a href="../implementation-details.html#mts-transformations">Transformations and provenance</a>: type conversion and source tracking.</li>
+        <li><a href="../implementation-details.html#mts-storage">Storage and corrections</a>, <a href="../implementation-details.html#mts-exports">exports and analysis</a>, and <a href="../implementation-details.html#mts-refresh">refresh behavior</a>.</li>
       </ul>
       <p class="note">The data pipeline and the published Tableau workbook are separate stages. Pipeline documentation does not verify the workbook's calculations, filters, joins, or refresh history. Check the published view's coverage before interpreting results.</p>
     </section>
@@ -79,9 +79,9 @@
       <h2 id="related">Related pages</h2>
       <ul>
         <li><a href="us-income-and-spending.html">US Income and Spending</a> — return to the dashboard directory.</li>
-        <li><a href="mts/mts-overview.html">Monthly Treasury Statements</a> — explore the source tables and reading guide.</li>
-        <li><a href="mts/table-1-reconciliation.html">Table 1 reconciliation</a> — why this project uses Table 4 for net income and Table 5 for net spending.</li>
-        <li><a href="mts/deficit-and-interest.html">Federal deficit and interest</a> — context for receipts, spending, and borrowing.</li>
+        <li><a href="../mts/mts-overview.html">Monthly Treasury Statements</a> — explore the source tables and reading guide.</li>
+        <li><a href="../mts/table-1-reconciliation.html">Table 1 reconciliation</a> — why this project uses Table 4 for net income and Table 5 for net spending.</li>
+        <li><a href="../mts/deficit-and-interest.html">Federal deficit and interest</a> — context for receipts, spending, and borrowing.</li>
       </ul>
     </section>
   </main>

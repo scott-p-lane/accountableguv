@@ -105,7 +105,7 @@
         <li><strong>JSON Lines bundle workflow:</strong> a separate tool exports selected tables into an offline bundle with schemas, row counts, checksums, and query IDs. Its PostgreSQL importer validates the bundle and destination schemas, then replaces the selected tables in one transaction. Decimals remain exact and missing values retain their distinction from text.</li>
       </ul>
       <p>Each Athena query reads its own table snapshot. These exports do not guarantee a common snapshot across nine tables; keep ingestion idle while exporting and use only completed exports.</p>
-      <p>The <a href="us-net-income.html">Net Income dashboard</a> embeds a separately published Tableau Public visualization of Table 4 net receipts. Workbook calculations, filters, joins, formatting, and refresh history are not available in this repository for verification. The ingestion rules documented above do not certify the workbook's transformations.</p>
+      <p>The <a href="income_and_spending/us-net-income.html">Net Income dashboard</a> embeds a separately published Tableau Public visualization of Table 4 net receipts. Workbook calculations, filters, joins, formatting, and refresh history are not available in this repository for verification. The ingestion rules documented above do not certify the workbook's transformations.</p>
 
       <h3 id="mts-refresh">6. Refresh behavior and interpretation</h3>
       <p>The staging template defaults to a configurable EventBridge download schedule on the 20th of each month at 18:00 UTC. Glue ingestion is manually invoked, and exports and dashboard publication are separate steps. A successful scheduled download does not establish that the website's dashboard has refreshed.</p>
@@ -123,7 +123,7 @@
           <li>Named CSV export: <code>mts/glue/mts_export/export_mts_csv.py</code></li>
           <li>Local CSV export and import: <code>mts/local_data/athena_export/</code> and <code>mts/local_data/mts_load_to_postgres/</code></li>
           <li>Offline bundle export/import: <code>tools/mts_postgres/mts_postgres.py</code></li>
-          <li>Dashboard embed: <code>static content/us-net-income.html</code></li>
+          <li>Dashboard embed: <code>static content/income_and_spending/us-net-income.html</code></li>
         </ul>
       </details>
     </section>

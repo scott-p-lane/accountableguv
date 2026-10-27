@@ -54,7 +54,7 @@
         <li><strong>Collection and staging:</strong> a Python downloader, runnable in AWS Lambda or locally, assembles one JSON file per table. In AWS, files are stored in a private, versioned Amazon S3 bucket under <code>mts/YYYY/MM/</code>. A manifest records the report date, file keys, row counts, and SHA-256 checksums.</li>
         <li><strong>Structured storage:</strong> a manually invoked AWS Glue Spark job validates the staged files and loads nine Apache Iceberg tables in Amazon S3 Tables, partitioned by <code>record_date</code>.</li>
         <li><strong>Queries and exports:</strong> Amazon Athena queries the structured tables. An optional Glue export job selects the source and lineage columns into named CSV files without joins, filters, or aggregation. Separate tools support CSV export and loading into a local PostgreSQL database for analysis.</li>
-        <li><strong>Presentation:</strong> static HTML and CSS are configured for delivery from private S3 storage through Amazon CloudFront. The <a href="us-net-income.html">Net Income page</a> embeds a separately published Tableau Public dashboard using MTS Table 4. Publishing or refreshing that dashboard is a separate step from downloading and loading reports.</li>
+        <li><strong>Presentation:</strong> static HTML and CSS are configured for delivery from private S3 storage through Amazon CloudFront. The <a href="income_and_spending/us-net-income.html">Net Income page</a> embeds a separately published Tableau Public dashboard using MTS Table 4. Publishing or refreshing that dashboard is a separate step from downloading and loading reports.</li>
       </ol>
 
       <h3 id="transformations">What transformations are performed?</h3>
