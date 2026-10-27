@@ -18,7 +18,13 @@
 .dashboard-tile p{margin:0}
 
 /* Dedicated dashboard page layout; shared by each published view. */
+/* Keep text centered and expand only the embedded dashboard panel. */
 .dashboard-page main{width:min(1440px,calc(100% - 2rem))}
+.dashboard-page .dashboard-panel{width:calc(100vw - 2rem);margin-inline:calc((100% - (100vw - 2rem))/2)}
+@supports(width:1cqw){
+  .dashboard-page{container-type:inline-size}
+  .dashboard-page .dashboard-panel{width:calc(100cqw - 2rem);margin-inline:calc((100% - (100cqw - 2rem))/2)}
+}
 .dashboard-sections{gap:.75rem 1.5rem;margin:1.5rem 0}
 .dashboard-detail{margin-top:2.5rem;padding-top:.5rem;border-top:1px solid var(--line)}
 .dashboard-detail>p,.dashboard-detail>ul{max-width:95ch}

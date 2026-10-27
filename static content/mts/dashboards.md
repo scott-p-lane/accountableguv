@@ -15,10 +15,12 @@ Each published Tableau dashboard has its own HTML page. `../income_and_spending/
 
 ## Layout
 
-The shared `mts/mts.css` provides a wide `.dashboard-page` main area, an embedded `.dashboard-panel`, and `.dashboard-detail` sections beneath it. The dashboard has its own scrollable viewport on smaller screens. The page's anchor navigation links to the dashboard, notes, sources, and related pages.
+The shared `mts/mts.css` provides a centered `.dashboard-page` main area capped at 1,440 pixels, a browser-width embedded `.dashboard-panel` with one-rem side gutters, and `.dashboard-detail` sections beneath it. The dashboard has its own scrollable viewport on smaller screens. The page's anchor navigation links to notes, sources, and related pages.
 
 ## Verify and publish
 
 Check local links and anchors, unique IDs, matching Tableau workbook/view URLs, and descriptive headings. Serve the site over HTTP to verify the live Tableau embed, filters, direct link, keyboard navigation, and desktop/phone layout. An accessible direct link remains available if the embed fails or JavaScript is disabled.
 
 Publish the new page, updated directory and source-table links, and any changed styles or images. CloudFront caches static files; invalidate changed paths when immediate updates are needed.
+
+For responsive dashboard content, set the Tableau dashboard's Size to Automatic before publishing. The template's embed uses 100% width and height; a workbook published with fixed sizing can retain its fixed content dimensions even when the surrounding page expands. See https://help.tableau.com/current/api/embedding_api/en-us/docs/embedding_api_configure.html.
