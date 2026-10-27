@@ -162,6 +162,14 @@
       footer span:last-child { text-align: left }
     }
     @media(prefers-reduced-motion: reduce) { html { scroll-behavior: auto } }
+    .income-panel { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center; margin-top:1.5rem; overflow:hidden; color:var(--ink); background:var(--white); border:1px solid var(--line); border-top:4px solid var(--green); border-radius:.3rem; text-decoration:none }
+    .income-panel:hover { border-color:var(--green); background:#e6eee8 }
+    .income-panel img { display:block; width:100%; height:auto }
+    .income-panel-content { padding:clamp(1.25rem,3vw,3rem) }
+    .income-panel h3 { margin:0 0 1rem; font-size:clamp(1.3rem,2vw,2rem); color:var(--green) }
+    .income-panel p { margin:0 0 1rem; color:var(--muted) }
+    .income-panel-action { color:var(--green); font-weight:700; text-decoration:underline; text-underline-offset:.2em }
+    @media(max-width:50rem) { .income-panel { grid-template-columns:1fr } }
   </style>
   <link rel="icon" type="image/svg+xml" href="assets/civic-steps.svg">
   <link rel="stylesheet" href="assets/brand.css">
@@ -170,7 +178,7 @@
 <body>
   <a class="skip" href="#content">Skip to main content</a>
   <header><a class="brand" href="home.html"><img class="brand-icon" src="assets/civic-steps.svg" alt="" width="48" height="48"><span><span class="brand-status">UNDER CONSTRUCTION</span><span class="brand-name">Accountable<span class="brand-guv">Guv</span></span></span></a>
-    <nav aria-label="Primary navigation"><a href="net-income.html">Net Income</a><a href="mts/deficit-and-interest.html">Deficit &amp; interest</a><a href="#mission">Our mission</a><a href="#approach">Our approach</a><a
+    <nav aria-label="Primary navigation"><a href="us-income-and-spending.html">US Income and Spending</a><a href="mts/deficit-and-interest.html">Deficit &amp; interest</a><a
         href="govt-data-overview.html">Government Data Sources</a><a href="about.html">About</a></nav>
   </header>
   <main id="content">
@@ -184,31 +192,16 @@
           where accountability begins.</p>
       </div>
     </section>
-    <section class="section" id="mission">
-      <div class="intro">
-        <p class="eyebrow">Our mission</p>
-        <h2>Understand the impact of government spending. Drive accountabiltiy from clear, accessible insights who is
-          impacted and how via trusted, public data.</h2>
-        <p>At the end of the day, accountability starts with making it easy for anyone to see how public funds are
-          collected and spent. That's the easy part. Now we need to make it easier to understand who is impacted
-          and how by those funds. That's tougher, especially when we must do so free of political bias.</p>
-      </div>
-      <div class="cards" id="approach">
-        <a class="card card-link" href="net-income.html" aria-labelledby="follow-the-money">
-          <span class="number">01 / ANALYZE</span>
-          <h3 id="follow-the-money">Follow the Money!</h3>
-          <p>Bring together trustworthy public records and datasets to understand the flow of government funds.</p>
-          <p>Explore the Net Income dashboard to follow federal net receipts using the U.S. Treasury's Monthly Treasury Statement (MTS).</p>
-        </a>
-        <article class="card"><span class="number">02 / CONNECT</span>
-          <h3>Capture the Impact</h3>
-          <p>Relate legislation and policy choices to the agencies, programs, and operations they shape. Use their own (public) data to illustrate the real-world effects.</p>
-        </article>
-        <article class="card"><span class="number">03 / DISCUSS</span>
-          <h3>Build shared context</h3>
-          <p>Present findings clearly so people can debate the evidence and possible changes constructively.</p>
-        </article>
-      </div>
+    <section class="section" aria-labelledby="explore-data">
+      <h2 id="explore-data">Explore the data</h2>
+      <a class="income-panel" href="us-income-and-spending.html" aria-labelledby="income-spending-title" aria-describedby="income-spending-summary">
+        <img src="assets/us-income-and-spending.svg" alt="" width="800" height="450">
+        <div class="income-panel-content">
+          <h3 id="income-spending-title">US Income and Spending</h3>
+          <p id="income-spending-summary">Follow the flow of federal funds through interactive dashboards based on the U.S. Treasury's Monthly Treasury Statement. Start with yearly net income comparisons.</p>
+          <span class="income-panel-action">Explore the dashboards &rarr;</span>
+        </div>
+      </a>
     </section>
     <section class="principle" aria-label="Guiding principle">
       <blockquote>“Money is only a tool. It will take you wherever you wish, but it will not replace you as the driver" - Ayn Rand</blockquote>

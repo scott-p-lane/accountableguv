@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" fill="none">
+  <title>Public income and spending</title>
+  <rect width="800" height="450" fill="#e6eee8"/>
+  <path d="M190 225h125m170 0h125" stroke="#174f3f" stroke-width="12" stroke-linecap="round"/>
+  <path d="m290 207 24 18-24 18m295-36 24 18-24 18" stroke="#174f3f" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="320" y="115" width="160" height="220" rx="12" fill="#fffef9"/>
+  <path d="m344 187 56-39 56 39Z" fill="#d8a73d"/>
+  <path d="M358 203v67m42-67v67m42-67v67" stroke="#174f3f" stroke-width="17"/>
+  <path d="M350 286h100m-108 17h116" stroke="#d8a73d" stroke-width="10" stroke-linecap="round"/>
+  <g fill="#174f3f"><rect x="85" y="168" width="90" height="22" rx="7"/><rect x="85" y="200" width="90" height="22" rx="7"/><rect x="85" y="232" width="90" height="22" rx="7"/></g>
+  <g fill="#d8a73d"><rect x="635" y="220" width="20" height="66" rx="4"/><rect x="665" y="188" width="20" height="98" rx="4"/><rect x="695" y="156" width="20" height="130" rx="4"/></g>
+  <g fill="#174f3f" font-family="system-ui,sans-serif" font-size="22" font-weight="700" text-anchor="middle"><text x="130" y="325">Income</text><text x="675" y="325">Spending</text></g>
+</svg>
