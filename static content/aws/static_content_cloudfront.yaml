@@ -52,8 +52,8 @@ Resources:
       CachePolicyConfig:
         Name: !Sub '${AWS::StackName}-static-content'
         MinTTL: 0
-        DefaultTTL: 3600
-        MaxTTL: 31536000
+        DefaultTTL: 300
+        MaxTTL: 3600
         ParametersInCacheKeyAndForwardedToOrigin:
           EnableAcceptEncodingGzip: true
           EnableAcceptEncodingBrotli: true

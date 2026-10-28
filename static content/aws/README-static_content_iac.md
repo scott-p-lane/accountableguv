@@ -48,8 +48,9 @@ to `cloudfront.amazonaws.com`, restricted by `AWS:SourceArn` to the
 - Confirm an unsigned S3 URL for the same object returns AccessDenied.
 - Confirm the bucket still has all four Block Public Access settings enabled.
 
-CloudFront caches objects for one hour by default and honors object
-`Cache-Control` headers from zero to one year. Query strings and cookies do
+CloudFront caches objects for five minutes (300 seconds) by default, with a
+minimum TTL of zero and a maximum TTL of one hour (3600 seconds). Object
+`Cache-Control` headers determine the duration within those limits. Query strings and cookies do
 not vary the cache. Use versioned asset filenames, short cache headers for HTML,
 or a CloudFront invalidation after replacing files that need immediate updates.
 

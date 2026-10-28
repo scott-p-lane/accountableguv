@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description"
-    content="Explore dashboards about US government income and spending, with notes, data sources, and processing details.">
+    content="Explore dashboards about US government income, spending and deficit. Each dashboard is accompanied by explanatory notes and links to the underlying data and processing documentation.">
   <title>AccountableGuv - US Income and Spending</title>
   <link rel="stylesheet" href="../mts/mts.css">
   <link rel="icon" type="image/svg+xml" href="../assets/civic-steps.svg">
@@ -17,20 +17,54 @@
   <a class="skip" href="#content">Skip to main content</a>
   <header>
     <nav aria-label="Primary navigation">
-      <a class="brand" href="../home.html"><img class="brand-icon" src="../assets/civic-steps.svg" alt="" width="48" height="48"><span class="brand-name">Accountable<span class="brand-guv">Guv</span></span></a>
+      <a class="brand" href="../home.html"><img class="brand-icon" src="../assets/civic-steps.svg" alt="" width="48"
+          height="48"><span class="brand-name">Accountable<span class="brand-guv">Guv</span></span></a>
       <a href="us-income-and-spending.html" aria-current="page">US Income and Spending</a>
       <a href="../mts/mts-overview.html">Monthly Treasury Statements</a>
     </nav>
   </header>
   <main id="content">
     <h1>US Income and Spending</h1>
-    <p class="lead">Explore federal finances through dedicated dashboard pages. Each page brings together an interactive Tableau view, notes and observations, and links to the underlying data and processing details.</p>
+    <nav class="dashboard-sections" aria-label="On this page">
+      <a href="#dashboards">Dashboards</a>
+      <a href="#reconciliation-notes">Notes</a>
+    </nav>
+    <p class="lead">Explore federal finances through dedicated dashboard pages. Each page brings together an interactive
+      visualization that is accompanied by explanatory notes and links to
+      the underlying data and processing documentation.</p>
+    <h1>Data Methodology</h1>
+    <p class="lead">AccountableGuv uses Monthly Treasury Statement (MTS) Table 4 for net income and Table 5 for
+      net spending. </p>
+    <section aria-labelledby="choice">
+      <p><a href="table-4.html">Table 4</a> reports receipts, refunds, and net receipts, which this site calls net
+        income.
+      <p><a href="table-5.html">Table 5</a> reports gross outlays, applicable receipts that offset spending, and
+        net outlays, which this site calls net spending. These tables provide the source, agency, and program detail
+        needed to explore the totals.</p>
+      <p><a href="table-1.html">Table 1</a> provides a separate summary of receipts, outlays, and the deficit or
+        surplus.
+      <p class="note"><strong>In the years compared for this site's analysis, the sums from Tables 4 and 5 match Table 1
+          in most years. In the years where they differ, the differences are less than 0.05% of the corresponding Table 1
+          total.</strong> At that scale, the differences do not change the broad trends or directional conclusions drawn
+        from the data.</p>
+      </p>
+      <p>In general, the Table 4 and Table 5 totals align closely with Table 1, demonstrating the consistency of the
+        data across these sources. In the interest of transparency and clarity, I am showing the values from all three
+        tables and displaying the magnitude of differences when they occur (often times there are no discrepancies). As
+        you can see, the differences are are a fraction of a fraction of a percent and don't materially change the
+        conclusions drawn from the data. <b>I also use this as a way to validate that my processing of different data
+        sources is accurate and that the data is consistent across the different tables.  </b>
+      </p>
+    </section>
+
+    <h1>Table 1 Reconciliation</h1>
     <section class="dashboard-panel" aria-labelledby="table-1-summary">
       <div class="dashboard-heading">
         <h2 id="table-1-summary">Table 1 Summary and Reconciliation</h2>
-        <a href="https://public.tableau.com/app/profile/scott.lane7297/viz/USIncomeandSpending-Table1Summary/TableTotalsDashboard" target="_blank" rel="noopener noreferrer">Open in Tableau Public</a>
+        <a href="https://public.tableau.com/app/profile/scott.lane7297/viz/USIncomeandSpending-Table1Summary/TableTotalsDashboard"
+          target="_blank" rel="noopener noreferrer">Open in Tableau Public</a>
       </div>
-      <p id="table-1-help">Explore the Table 1 summary and the reconciliation of receipts and spending with the sums from Tables 4 and 5. If the embedded report does not load or is difficult to use on your device, open it in Tableau Public using the link above.</p>
+
       <div class="dashboard-viewport">
         <tableau-viz id="table-totals-viz"
           src="https://public.tableau.com/views/USIncomeandSpending-Table1Summary/TableTotalsDashboard?:showVizHome=no"
@@ -39,40 +73,78 @@
       </div>
     </section>
     <section class="dashboard-detail" aria-labelledby="reconciliation-notes">
-      <h2 id="reconciliation-notes">Notes on reconciliation</h2>
-      <p>Table 1 values align with the sums from Table 4 (net receipts) and Table 5 (net spending) in most cases, but not always. The Reconciliation table shows when the values differ and by how much.</p>
-      <p>The differences observed in this project's comparisons are infrequent and marginal. They should not be a concern for the broad trends and comparisons presented here; the reconciliation makes them visible for transparency.</p>
-      <!-- Add the detailed explanation of the differences here when ready. -->
-      <p>A fuller explanation of these differences will be added. See the <a href="../mts/table-1-reconciliation.html">Table 1 reconciliation methodology</a> for the current approach.</p>
-      <p>Source references: <a href="../mts/table-1.html">Table 1 summary</a>, <a href="../mts/table-4.html#fields">Table 4 receipts</a>, and <a href="../mts/table-5.html#fields">Table 5 spending</a>.</p>
+      <h2 id="reconciliation-notes">Notes</h2>
+      <h3 id="precision">Precision and monthly insight</h3>
+      <p>Using the annual Combined Statement tables could improve precision, though it would not provide absolute
+        precision. This site has chosen to retain Tables 4 and 5 because the small differences observed do not change
+        the conclusions, and the monthly data supports a more detailed view of trends over time.</p>
+      <p>The Combined Statement is produced annually. The MTS is published monthly, allowing analysis of changes within
+        a fiscal year, down to individual months. That frequency helps show when income and spending change, beyond what
+        an annual total alone can reveal. In addition, users are able to compare current fiscal year data with prior
+        year by filtering out to the processed months.</p>
+      <p>In general, the Table 4 and Table 5 totals align closely with Table 1, demonstrating the consistency of the
+        data across these sources. In the interest of transparency and clarity, I am showing the values from all three
+        tables and displaying the magnitude of differences when they occur (often times there are no discrepancies). As
+        you can see, the differences are are a fraction of a fraction of a percent and don't materially change the
+        conclusions drawn from the data.
+      </p>
+      <p>Table 1 values align with the sums from Table 4 (net receipts) and Table 5 (net spending) in most cases, but
+        not always. The Reconciliation table shows when the values differ and by how much.</p>
+      <p>The differences observed in this project's comparisons are infrequent and marginal. They should not be a
+        concern for the broad trends and comparisons presented here; the reconciliation makes them visible for
+        transparency.</p>
+      <p>Source references: <a href="../mts/table-1.html">Table 1 summary</a>, <a
+          href="../mts/table-4.html#fields">Table 4 receipts</a>, and <a href="../mts/table-5.html#fields">Table 5
+          spending</a>.</p>
+
+      <h3 id="Fiscal Years">Fiscal Year</h3>
+      <p>The fiscal year is the 12-month period used by the federal government for accounting and budgeting purposes.
+        It runs from October 1 of one year to September 30 of the next year. For example, fiscal year 2023 (FY2023)
+        started on October 1, 2022, and ended on September 30, 2023. The fiscal year is often abbreviated as "FY"
+        followed
+        by the year number.</p>
+      <h3 id="Filtering">Filtering Within the Dashboards</h3>
+      <p>Within the dashboards, you can filter the data by fiscal year and month. The default view shows all available
+        fiscal years and months. You can select a specific fiscal year to see the data for that year, or select a
+        specific month to see the data for that month across all available fiscal years. You can also select multiple
+        fiscal years or months to compare the data across those selections.</p>
+      <p>When comparing the current fiscal years to previous ones, be sure to filter by the same months to ensure
+        accurate comparisons. For example, if we are only have data through July of the current fiscal year, then you
+        should uncheck August and September. This will ensure that you are comparing values against the same months in
+        prior fiscal years. </p>
     </section>
     <section aria-labelledby="dashboards">
       <h2 id="dashboards">Dashboards</h2>
       <div class="dashboard-directory">
-        <a class="dashboard-tile" href="us-net-income.html" aria-labelledby="net-income-title" aria-describedby="net-income-summary">
+        <a class="dashboard-tile" href="us-net-income.html" aria-labelledby="net-income-title"
+          aria-describedby="net-income-summary">
           <img src="../assets/us-income-and-spending.svg" alt="" width="800" height="450">
           <div class="dashboard-tile-content">
             <h3 id="net-income-title">US Net Income</h3>
-            <p id="net-income-summary">Compare federal net receipts across fiscal years using MTS Table 4. Explore the dashboard, reading notes, and source documentation.</p>
+            <p id="net-income-summary">Compare federal net receipts across fiscal years using MTS Table 4. Explore the
+              dashboard, reading notes, and source documentation.</p>
           </div>
         </a>
-        <a class="dashboard-tile" href="us-spending.html" aria-labelledby="spending-title" aria-describedby="spending-summary">
+        <a class="dashboard-tile" href="us-spending.html" aria-labelledby="spending-title"
+          aria-describedby="spending-summary">
           <img src="../assets/us-income-and-spending.svg" alt="" width="800" height="450">
           <div class="dashboard-tile-content">
             <h3 id="spending-title">US Spending</h3>
-            <p id="spending-summary">Compare federal spending across fiscal years using MTS Table 5. Explore the dashboard, reading notes, and source documentation.</p>
+            <p id="spending-summary">Compare federal spending across fiscal years using MTS Table 5. Explore the
+              dashboard, reading notes, and source documentation.</p>
           </div>
         </a>
-        <a class="dashboard-tile" href="us-deficit.html" aria-labelledby="deficit-title" aria-describedby="deficit-summary">
+        <a class="dashboard-tile" href="us-deficit.html" aria-labelledby="deficit-title"
+          aria-describedby="deficit-summary">
           <img src="../assets/us-income-and-spending.svg" alt="" width="800" height="450">
           <div class="dashboard-tile-content">
             <h3 id="deficit-title">US Deficit</h3>
-            <p id="deficit-summary">Explore the gap between federal spending and net receipts using MTS Tables 4 and 5, with notes and source documentation.</p>
+            <p id="deficit-summary">Explore the gap between federal spending and net receipts using MTS Tables 4 and 5,
+              with notes and source documentation.</p>
           </div>
         </a>
       </div>
     </section>
-    <p>More dashboard pages will be added as they are published.</p>
   </main>
   <footer>AccountableGuv · US Income and Spending</footer>
 </body>
