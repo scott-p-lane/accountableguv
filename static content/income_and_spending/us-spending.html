@@ -77,13 +77,16 @@
 
     <section class="dashboard-detail" aria-labelledby="sources">
       <h2 id="sources">Data sources and processing</h2>
-      <p>These dashboards use <strong>MTS Table 5: Outlays of the U.S. Government</strong> and <strong>MTS Table 4: Receipts of the U.S. Government</strong>, published by the U.S. Department of the Treasury. Table 5 provides agency and program spending, including gross outlays, applicable receipts, and net outlays. Table 4 provides gross receipts, refunds, and net receipts.</p>
-      <p>Table 4 net receipts are used to compare government spending against incoming funds. Both tables include current-month, fiscal-year-to-date, and comparable prior-fiscal-year-to-date amounts. Use matching reporting periods when comparing spending and net receipts.</p>
+      <p>These dashboards use <strong>MTS Table 5: Outlays of the U.S. Government</strong>, <strong>MTS Table 4: Receipts of the U.S. Government</strong>, and <strong>MTS Table 9: Receipts by source and outlays by function</strong> published by the U.S. Department of the Treasury. Table 5 provides agency and program spending, including gross outlays, applicable receipts, and net outlays. Table 4 provides gross receipts, refunds, and net receipts.</p>
+      <p>Table 9 groups receipts by source and spending by function, providing a view of the purposes of spending alongside Table 5's agency and program detail.</p>
+      <p>Table 4 net receipts are used to compare government spending against incoming funds. Tables 4 and 5 include current-month, fiscal-year-to-date, and comparable prior-fiscal-year-to-date amounts. Use matching reporting periods when comparing spending and net receipts.</p>
       <ul>
         <li><a href="https://fiscaldata.treasury.gov/datasets/monthly-treasury-statement/">Official Treasury dataset</a> and <a href="https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/mts/mts_table_5">Table 5 API endpoint</a>.</li>
         <li><a href="../mts/table-5.html#fields">Table 5 field documentation</a>: source fields, reporting periods, and units.</li>
         <li><a href="https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/mts/mts_table_4">Table 4 API endpoint</a>: receipts, refunds, and net receipts used for the spending comparison.</li>
         <li><a href="../mts/table-4.html#fields">Table 4 field documentation</a>: receipt measures, reporting periods, and units.</li>
+        <li><a href="https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v1/accounting/mts/mts_table_9">Table 9 API endpoint</a>: receipts by source and outlays by function.</li>
+        <li><a href="../mts/table-9.html#fields">Table 9 field documentation</a>: functional classifications, receipt and outlay measures, reporting periods, and units.</li>
         <li><a href="../implementation-details.html#mts-collection">Collection</a> and <a href="../implementation-details.html#mts-validation">validation</a>: how reports are downloaded and checked before loading.</li>
         <li><a href="../implementation-details.html#mts-transformations">Transformations and provenance</a>: type conversion and source tracking.</li>
         <li><a href="../implementation-details.html#mts-storage">Storage and corrections</a>, <a href="../implementation-details.html#mts-exports">exports and analysis</a>, and <a href="../implementation-details.html#mts-refresh">refresh behavior</a>.</li>
