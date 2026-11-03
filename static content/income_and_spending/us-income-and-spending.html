@@ -33,18 +33,34 @@
       visualization that is accompanied by explanatory notes and links to
       the underlying data and processing documentation.</p>
     <h1>Data Methodology</h1>
-    <p class="lead">AccountableGuv uses Monthly Treasury Statement (MTS) Table 4 for net income and Table 5 for
-      net spending. </p>
+    <p class="lead">AccountableGuv uses Monthly Treasury Statement (MTS) Tables. We take care to ensure that table
+      totals are not double-counted and that they all reconcile with each other. For example, we compare the sums of the
+      detail records from monthly, detailed reports to the totals in Table 1 to ensure that there were no issues in
+      processing. See below for a list of tables and how they are used.</p>
+    <p><b>We process prior months reports on the 20th of the following month. For example, by the end of October, you
+        should be able to see all data up through the current month. Though feeds may be available earlier, we wait
+        until the 20th to accomodate any revisions or delays that may occurr on the Treasury side.</b></p>
     <section aria-labelledby="choice">
-      <p><a href="table-4.html">Table 4</a> reports receipts, refunds, and net receipts, which this site calls net
-        income.
-      <p><a href="table-5.html">Table 5</a> reports gross outlays, applicable receipts that offset spending, and
-        net outlays, which this site calls net spending. These tables provide the source, agency, and program detail
-        needed to explore the totals.</p>
-      <p><a href="table-1.html">Table 1</a> provides a separate summary of receipts, outlays, and the deficit or
-        surplus.
+      <ul>
+        <li><a href="table-1.html">Table 1</a> - Provides a separate summary of receipts, outlays, and the deficit or
+          surplus. This is used to validate processing of detail tables (e.g., Tables 4 and 5). It is expected that
+          totals across all tables will be align.</li>
+        <li><a href="table-4.html">Table 4</a> - Provides detailed accounting of receipts, refunds, and net receipts for
+          each month. This site focuses on net receipts and refers to it on reports as "Net Income".</li>
+        <li><a href="table-5.html">Table 5</a> - Provides detailed accounting of gross outlays, applicable receipts that
+          offset spending, and
+          net outlays. This site focuses on net outlays and refers to it on reports as "Net Spend". </li>
+        <li><a href="table-6.html">Table 6</a> - Reports totals (YoY) for accumulated debt. Essentially, at the end of a
+          given FY, what is the total national debt. This is different from the YoY deficit which calculates deficit for
+          an individual year.</li>
+        <li><a href="table-9.html">Table 9</a> - Provides sources for receipts and spending by function. Functions
+          descrip
+          the purpose of spending and differ from agency groupings that are available via Table 5. <b>At this time, it
+            is not possible to map those agencies to the functions.</b></li>
+      </ul>
       <p class="note"><strong>In the years compared for this site's analysis, the sums from Tables 4 and 5 match Table 1
-          in most years. In the years where they differ, the differences are less than 0.05% of the corresponding Table 1
+          in most years. In the years where they differ, the differences are less than 0.05% of the corresponding Table
+          1
           total.</strong> At that scale, the differences do not change the broad trends or directional conclusions drawn
         from the data.</p>
       </p>
@@ -53,7 +69,7 @@
         tables and displaying the magnitude of differences when they occur (often times there are no discrepancies). As
         you can see, the differences are are a fraction of a fraction of a percent and don't materially change the
         conclusions drawn from the data. <b>I also use this as a way to validate that my processing of different data
-        sources is accurate and that the data is consistent across the different tables.  </b>
+          sources is accurate and that the data is consistent across the different tables. </b>
       </p>
     </section>
 
@@ -112,6 +128,7 @@
         accurate comparisons. For example, if we are only have data through July of the current fiscal year, then you
         should uncheck August and September. This will ensure that you are comparing values against the same months in
         prior fiscal years. </p>
+
     </section>
     <section aria-labelledby="dashboards">
       <h2 id="dashboards">Dashboards</h2>
