@@ -30,7 +30,21 @@ service principal. Viewer HTTP requests redirect to HTTPS.
    manage CloudFront distributions, OACs, cache policies, the S3 bucket policy,
    and S3 bucket creation and configuration when creating the default bucket.
 
-The new default bucket blocks all public access and uses SSE-S3 encryption.
+The new default bucket blocks all public access, uses SSE-S3 encryption, and
+enables S3 Versioning. Its lifecycle rule applies to all object keys and retains
+the current version plus the most recent noncurrent version (two versions total).
+Additional noncurrent versions become eligible for permanent deletion only after
+they have been noncurrent for 30 days. Both the age and retained-version-count
+conditions must be met; cleanup is asynchronous, so more than two versions can
+exist while additional versions are younger than 30 days or await cleanup.
+The rule does not expire current objects. Eligible historical versions already
+in the bucket are also subject to cleanup once this configuration is deployed.
+
+These versioning and lifecycle settings apply to the bucket managed by this stack,
+including updates to that bucket. When `StaticContentBucketName` names an external
+existing bucket, the stack does not manage its versioning or lifecycle; configure
+equivalent settings in that bucket's owning stack or in S3.
+
 The stack does not change an existing bucket's public-access or ownership
 settings; configure them in step 1. It uses the regional S3 REST endpoint.
 S3 website hosting is unnecessary; website endpoints do not support OAC.

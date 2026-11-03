@@ -26,6 +26,17 @@ Resources:
     UpdateReplacePolicy: Retain
     Properties:
       BucketName: acctguv-static-content
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: RetainLatestTwoVersionsAfter30Days
+            Status: Enabled
+            Prefix: ''
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 30
+              # Retain one previous version in addition to the current version.
+              NewerNoncurrentVersions: 1
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
