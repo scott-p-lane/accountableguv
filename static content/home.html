@@ -21,17 +21,40 @@
       --content-width: 100rem
     }
 
-    * { box-sizing: border-box }
-    html { scroll-behavior: smooth }
+    * {
+      box-sizing: border-box
+    }
+
+    html {
+      scroll-behavior: smooth
+    }
+
     body {
       margin: 0;
       color: var(--ink);
       background: var(--paper);
       font: clamp(1rem, .9rem + .25vw, 1.25rem)/1.65 system-ui, -apple-system, "Segoe UI", sans-serif
     }
-    h1, h2, h3, p, blockquote { overflow-wrap: anywhere }
-    h1, h2, h3 { text-wrap: balance }
-    a:focus-visible { outline: 3px solid #ad780b; outline-offset: 4px }
+
+    h1,
+    h2,
+    h3,
+    p,
+    blockquote {
+      overflow-wrap: anywhere
+    }
+
+    h1,
+    h2,
+    h3 {
+      text-wrap: balance
+    }
+
+    a:focus-visible {
+      outline: 3px solid #ad780b;
+      outline-offset: 4px
+    }
+
     .skip {
       position: absolute;
       top: -5rem;
@@ -41,13 +64,22 @@
       color: #fff;
       background: var(--dark)
     }
-    .skip:focus { top: 1rem }
 
-    header, footer, .hero-inner, .section, blockquote {
+    .skip:focus {
+      top: 1rem
+    }
+
+    header,
+    footer,
+    .hero-inner,
+    .section,
+    blockquote {
       width: min(var(--content-width), calc(100% - 2 * var(--gutter)));
       margin-inline: auto
     }
-    header, footer {
+
+    header,
+    footer {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
@@ -55,6 +87,7 @@
       gap: 1.25rem 2rem;
       padding-block: clamp(1rem, 2vw, 2rem)
     }
+
     .brand {
       display: flex;
       align-items: center;
@@ -67,6 +100,7 @@
       line-height: 1.4;
       text-decoration: none
     }
+
     nav {
       display: flex;
       flex: 0 1 auto;
@@ -74,32 +108,50 @@
       align-items: center;
       gap: .6rem clamp(.8rem, 1.3vw, 1.5rem)
     }
+
     nav a {
       color: var(--muted);
       font-size: .9em;
       font-weight: 700;
       text-decoration: none
     }
-    nav a:hover, nav a:focus-visible { color: var(--green); text-decoration: underline }
+
+    nav a:hover,
+    nav a:focus-visible {
+      color: var(--green);
+      text-decoration: underline
+    }
 
     .hero {
       padding-block: clamp(2.5rem, 5vw, 5rem);
       color: #fff;
       background: var(--dark)
     }
+
     h1 {
       margin: 0;
       font: 500 clamp(1.65rem, 1.15rem + 1.5vw, 3rem)/1.25 Georgia, serif;
       letter-spacing: -.02em
     }
-    .hero p { max-width: 95ch }
+
+    .hero p {
+      max-width: 95ch
+    }
+
     .lead {
       margin: 1.5rem 0 1rem;
       color: #dce8e3;
       font-size: 1.1em
     }
-    .hero p:last-child { margin-bottom: 0 }
-    .section { padding-block: clamp(2.5rem, 5vw, 5rem) }
+
+    .hero p:last-child {
+      margin-bottom: 0
+    }
+
+    .section {
+      padding-block: clamp(2.5rem, 5vw, 5rem)
+    }
+
     .eyebrow {
       margin: 0 0 1rem;
       color: var(--green);
@@ -108,25 +160,36 @@
       letter-spacing: .12em;
       text-transform: uppercase
     }
+
     .intro {
       display: grid;
       grid-template-columns: 1fr 1fr;
       align-items: start;
       gap: 0 clamp(2rem, 4vw, 5rem)
     }
-    .intro .eyebrow { grid-column: 1 / -1 }
+
+    .intro .eyebrow {
+      grid-column: 1 / -1
+    }
+
     h2 {
       margin: 0;
       font: 500 clamp(1.45rem, 1.1rem + 1vw, 2.3rem)/1.3 Georgia, serif;
       letter-spacing: -.02em
     }
-    .intro > p:last-child { margin: 0; color: var(--muted) }
+
+    .intro>p:last-child {
+      margin: 0;
+      color: var(--muted)
+    }
+
     .cards {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: clamp(1rem, 2vw, 2rem);
       margin-top: clamp(2rem, 4vw, 4rem)
     }
+
     .card {
       min-width: 0;
       padding: clamp(1.25rem, 2vw, 2rem);
@@ -135,40 +198,151 @@
       border-top: 4px solid var(--green);
       border-radius: .3rem
     }
-    .card-link { display: block; color: var(--ink); text-decoration: none }
-    .card-link:hover { background: #e6eee8; border-color: var(--green) }
-    .number { color: var(--green); font-size: .78em; font-weight: 850; letter-spacing: .1em }
-    h3 { margin: 1rem 0 .75rem; font-size: 1.2em; line-height: 1.3 }
-    .card p { margin: 0; color: var(--muted) }
-    .card p + p { margin-top: .75rem }
+
+    .card-link {
+      display: block;
+      color: var(--ink);
+      text-decoration: none
+    }
+
+    .card-link:hover {
+      background: #e6eee8;
+      border-color: var(--green)
+    }
+
+    .number {
+      color: var(--green);
+      font-size: .78em;
+      font-weight: 850;
+      letter-spacing: .1em
+    }
+
+    h3 {
+      margin: 1rem 0 .75rem;
+      font-size: 1.2em;
+      line-height: 1.3
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted)
+    }
+
+    .card p+p {
+      margin-top: .75rem
+    }
+
     .principle {
       padding-block: clamp(2.5rem, 4vw, 4rem);
       color: #fff;
       text-align: center;
       background: var(--green)
     }
-    blockquote { font: 500 clamp(1.2rem, 1rem + .7vw, 2rem)/1.5 Georgia, serif; text-wrap: balance }
-    footer { color: var(--muted); font-size: .85em }
-    footer span:last-child { text-align: right }
+
+    blockquote {
+      font: 500 clamp(1.2rem, 1rem + .7vw, 2rem)/1.5 Georgia, serif;
+      text-wrap: balance
+    }
+
+    footer {
+      color: var(--muted);
+      font-size: .85em
+    }
+
+    footer span:last-child {
+      text-align: right
+    }
+
     @media(max-width: 70rem) {
-      header { align-items: flex-start; flex-direction: column }
-      .brand { flex-basis: auto }
+      header {
+        align-items: flex-start;
+        flex-direction: column
+      }
+
+      .brand {
+        flex-basis: auto
+      }
     }
+
     @media(max-width: 50rem) {
-      .intro, .cards { grid-template-columns: 1fr }
-      .intro { gap: 1rem }
-      footer { align-items: flex-start; flex-direction: column }
-      footer span:last-child { text-align: left }
+
+      .intro,
+      .cards {
+        grid-template-columns: 1fr
+      }
+
+      .intro {
+        gap: 1rem
+      }
+
+      footer {
+        align-items: flex-start;
+        flex-direction: column
+      }
+
+      footer span:last-child {
+        text-align: left
+      }
     }
-    @media(prefers-reduced-motion: reduce) { html { scroll-behavior: auto } }
-    .income-panel { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center; margin-top:1.5rem; overflow:hidden; color:var(--ink); background:var(--white); border:1px solid var(--line); border-top:4px solid var(--green); border-radius:.3rem; text-decoration:none }
-    .income-panel:hover { border-color:var(--green); background:#e6eee8 }
-    .income-panel img { display:block; width:100%; height:auto }
-    .income-panel-content { padding:clamp(1.25rem,3vw,3rem) }
-    .income-panel h3 { margin:0 0 1rem; font-size:clamp(1.3rem,2vw,2rem); color:var(--green) }
-    .income-panel p { margin:0 0 1rem; color:var(--muted) }
-    .income-panel-action { color:var(--green); font-weight:700; text-decoration:underline; text-underline-offset:.2em }
-    @media(max-width:50rem) { .income-panel { grid-template-columns:1fr } }
+
+    @media(prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto
+      }
+    }
+
+    .income-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      align-items: center;
+      margin-top: 1.5rem;
+      overflow: hidden;
+      color: var(--ink);
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-top: 4px solid var(--green);
+      border-radius: .3rem;
+      text-decoration: none
+    }
+
+    .income-panel:hover {
+      border-color: var(--green);
+      background: #e6eee8
+    }
+
+    .income-panel img {
+      display: block;
+      width: 100%;
+      height: auto
+    }
+
+    .income-panel-content {
+      padding: clamp(1.25rem, 3vw, 3rem)
+    }
+
+    .income-panel h3 {
+      margin: 0 0 1rem;
+      font-size: clamp(1.3rem, 2vw, 2rem);
+      color: var(--green)
+    }
+
+    .income-panel p {
+      margin: 0 0 1rem;
+      color: var(--muted)
+    }
+
+    .income-panel-action {
+      color: var(--green);
+      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: .2em
+    }
+
+    @media(max-width:50rem) {
+      .income-panel {
+        grid-template-columns: 1fr
+      }
+    }
   </style>
   <link rel="icon" type="image/svg+xml" href="assets/civic-steps.svg">
   <link rel="stylesheet" href="assets/brand.css">
@@ -176,8 +350,10 @@
 
 <body>
   <a class="skip" href="#content">Skip to main content</a>
-  <header><a class="brand" href="home.html"><img class="brand-icon" src="assets/civic-steps.svg" alt="" width="48" height="48"><span><span class="brand-name">Accountable<span class="brand-guv">Guv</span></span></span></a>
-    <nav aria-label="Primary navigation"><a href="income_and_spending/us-income-and-spending.html">US Income and Spending</a><a href="mts/deficit-and-interest.html">Deficit &amp; interest</a><a
+  <header><a class="brand" href="home.html"><img class="brand-icon" src="assets/civic-steps.svg" alt="" width="48"
+        height="48"><span><span class="brand-name">Accountable<span class="brand-guv">Guv</span></span></span></a>
+    <nav aria-label="Primary navigation"><a href="income_and_spending/us-income-and-spending.html">US Income and
+        Spending</a><a href="mts/deficit-and-interest.html">Deficit &amp; interest</a><a
         href="govt-data-overview.html">Government Data Sources</a><a href="about.html">About</a></nav>
   </header>
   <main id="content">
@@ -193,17 +369,20 @@
     </section>
     <section class="section" aria-labelledby="explore-data">
       <h2 id="explore-data">Explore the data</h2>
-      <a class="income-panel" href="income_and_spending/us-income-and-spending.html" aria-labelledby="income-spending-title" aria-describedby="income-spending-summary">
+      <a class="income-panel" href="income_and_spending/us-income-and-spending.html"
+        aria-labelledby="income-spending-title" aria-describedby="income-spending-summary">
         <img src="assets/us-income-and-spending.svg" alt="" width="800" height="450">
         <div class="income-panel-content">
           <h3 id="income-spending-title">US Income and Spending</h3>
-          <p id="income-spending-summary">Follow the flow of federal funds through interactive dashboards based on the U.S. Treasury's Monthly Treasury Statement. Start with yearly net income comparisons.</p>
+          <p id="income-spending-summary">Follow the flow of federal funds through interactive dashboards based on the
+            U.S. Treasury's Monthly Treasury Statement. Start with yearly net income comparisons.</p>
           <span class="income-panel-action">Explore the dashboards &rarr;</span>
         </div>
       </a>
     </section>
     <section class="principle" aria-label="Guiding principle">
-      <blockquote>“Money is only a tool. It will take you wherever you wish, but it will not replace you as the driver" - Ayn Rand</blockquote>
+      <blockquote>“Let us not seek the Republican answer or the Democratic answer, but the right answer. Let us not seek
+        to fix the blame for the past. Let us accept our own responsibility for the future." - John F. Kennedy, 1958</blockquote>
     </section>
   </main>
   <footer><span>&copy; 2026 AccountableGuv</span><span>Public evidence. Clear context. Constructive
