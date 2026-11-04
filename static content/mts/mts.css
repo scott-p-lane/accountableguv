@@ -29,3 +29,7 @@
 .dashboard-detail{margin-top:2.5rem;padding-top:.5rem;border-top:1px solid var(--line)}
 .dashboard-detail>p,.dashboard-detail>ul{max-width:95ch}
 .dashboard-page section{scroll-margin-top:1rem}
+
+/* Match the home page's full-width guiding-quote band. */
+.income-spending-page .principle{padding-block:clamp(2.5rem,4vw,4rem);color:#fff;text-align:center;background:var(--green)}
+.income-spending-page .principle blockquote{width:min(100rem,calc(100% - 2 * clamp(1rem,4vw,5rem)));margin-inline:auto;font:500 clamp(1.2rem,1rem + .7vw,2rem)/1.5 Georgia,serif;text-wrap:balance;overflow-wrap:anywhere}

@@ -35,27 +35,33 @@
     <h1>Data Methodology</h1>
     <p class="lead">AccountableGuv uses Monthly Treasury Statement (MTS) Tables. We take care to ensure that table
       totals are not double-counted and that they all reconcile with each other. For example, we compare the sums of the
-      detail records from monthly, detailed reports to the totals in Table 1 to ensure that there were no issues in
+      detail records from monthly, detailed reports to the totals in summary tables (like Table 1) to ensure that there
+      are no issues in
       processing. See below for a list of tables and how they are used.</p>
     <p><b>We process prior months reports on the 20th of the following month. For example, by the end of October, you
-        should be able to see all data up through the current month. Though feeds may be available earlier, we wait
+        should be able to see all data up through the prior month (September). Though feeds may be available earlier, we
+        wait
         until the 20th to accomodate any revisions or delays that may occurr on the Treasury side.</b></p>
     <section aria-labelledby="choice">
       <ul>
-        <li><a href="table-1.html">Table 1</a> - Provides a separate summary of receipts, outlays, and the deficit or
-          surplus. This is used to validate processing of detail tables (e.g., Tables 4 and 5). It is expected that
+        <li><a href="table-1.html">Table 1 (Summary of Income and Spending)</a> - Provides a separate summary of
+          receipts, outlays, and
+          the deficit or surplus. This is used to validate processing of detail tables (e.g., Tables 4 and 5). It is
+          expected that
           totals across all tables will be align.</li>
-        <li><a href="table-4.html">Table 4</a> - Provides detailed accounting of receipts, refunds, and net receipts for
+        <li><a href="table-4.html">Table 4 (Income Details)</a> - Provides detailed accounting of receipts, refunds, and
+          net receipts for
           each month. This site focuses on net receipts and refers to it on reports as "Net Income".</li>
-        <li><a href="table-5.html">Table 5</a> - Provides detailed accounting of gross outlays, applicable receipts that
-          offset spending, and
-          net outlays. This site focuses on net outlays and refers to it on reports as "Net Spend". </li>
-        <li><a href="table-6.html">Table 6</a> - Reports totals (YoY) for accumulated debt. Essentially, at the end of a
+        <li><a href="table-5.html">Table 5 (Spending Details)</a> - Provides detailed accounting of gross outlays,
+          applicable receipts that offset spending, and net outlays. This site focuses on net outlays and refers to it
+          on reports as "Net Spend". </li>
+        <li><a href="table-6.html">Table 6 (Total Debt)</a> - Reports totals (YoY) for accumulated debt. Essentially, at
+          the end of a
           given FY, what is the total national debt. This is different from the YoY deficit which calculates deficit for
           an individual year.</li>
-        <li><a href="table-9.html">Table 9</a> - Provides sources for receipts and spending by function. Functions
-          descrip
-          the purpose of spending and differ from agency groupings that are available via Table 5. <b>At this time, it
+        <li><a href="table-9.html">Table 9 (Spending by Function)</a> - Provides sources for receipts and spending by
+          function. In these reports, we are using this to obtain spend by function. This is different than spending by
+          agency groupings captured in Table 5. <b>At this time, it
             is not possible to map those agencies to the functions.</b></li>
       </ul>
       <p class="note"><strong>In the years compared for this site's analysis, the sums from Tables 4 and 5 match Table 1
@@ -86,6 +92,38 @@
           src="https://public.tableau.com/views/USIncomeandSpending-Table1Summary/TableTotalsDashboard?:showVizHome=no"
           width="100%" height="100%" toolbar="bottom" hide-tabs
           aria-label="Table 1 summary and reconciliation dashboard" aria-describedby="table-1-help"></tableau-viz>
+      </div>
+    </section>
+        <section aria-labelledby="dashboards">
+      <h2 id="dashboards">Dashboards</h2>
+      <div class="dashboard-directory">
+        <a class="dashboard-tile" href="us-net-income.html" aria-labelledby="net-income-title"
+          aria-describedby="net-income-summary">
+          <img src="../assets/us-income-and-spending.svg" alt="" width="800" height="450">
+          <div class="dashboard-tile-content">
+            <h3 id="net-income-title">US Net Income</h3>
+            <p id="net-income-summary">Compare federal net receipts across fiscal years using MTS Table 4. Explore the
+              dashboard, reading notes, and source documentation.</p>
+          </div>
+        </a>
+        <a class="dashboard-tile" href="us-spending.html" aria-labelledby="spending-title"
+          aria-describedby="spending-summary">
+          <img src="../assets/us-income-and-spending.svg" alt="" width="800" height="450">
+          <div class="dashboard-tile-content">
+            <h3 id="spending-title">US Spending</h3>
+            <p id="spending-summary">Compare federal spending across fiscal years using MTS Table 5. Explore the
+              dashboard, reading notes, and source documentation.</p>
+          </div>
+        </a>
+        <a class="dashboard-tile" href="us-deficit.html" aria-labelledby="deficit-title"
+          aria-describedby="deficit-summary">
+          <img src="../assets/us-income-and-spending.svg" alt="" width="800" height="450">
+          <div class="dashboard-tile-content">
+            <h3 id="deficit-title">US Deficit</h3>
+            <p id="deficit-summary">Explore the gap between federal spending and net receipts using MTS Tables 4 and 5,
+              with notes and source documentation.</p>
+          </div>
+        </a>
       </div>
     </section>
     <section class="dashboard-detail" aria-labelledby="reconciliation-notes">
@@ -130,47 +168,16 @@
         prior fiscal years. </p>
 
     </section>
-    <section aria-labelledby="dashboards">
-      <h2 id="dashboards">Dashboards</h2>
-      <div class="dashboard-directory">
-        <a class="dashboard-tile" href="us-net-income.html" aria-labelledby="net-income-title"
-          aria-describedby="net-income-summary">
-          <img src="../assets/us-income-and-spending.svg" alt="" width="800" height="450">
-          <div class="dashboard-tile-content">
-            <h3 id="net-income-title">US Net Income</h3>
-            <p id="net-income-summary">Compare federal net receipts across fiscal years using MTS Table 4. Explore the
-              dashboard, reading notes, and source documentation.</p>
-          </div>
-        </a>
-        <a class="dashboard-tile" href="us-spending.html" aria-labelledby="spending-title"
-          aria-describedby="spending-summary">
-          <img src="../assets/us-income-and-spending.svg" alt="" width="800" height="450">
-          <div class="dashboard-tile-content">
-            <h3 id="spending-title">US Spending</h3>
-            <p id="spending-summary">Compare federal spending across fiscal years using MTS Table 5. Explore the
-              dashboard, reading notes, and source documentation.</p>
-          </div>
-        </a>
-        <a class="dashboard-tile" href="us-deficit.html" aria-labelledby="deficit-title"
-          aria-describedby="deficit-summary">
-          <img src="../assets/us-income-and-spending.svg" alt="" width="800" height="450">
-          <div class="dashboard-tile-content">
-            <h3 id="deficit-title">US Deficit</h3>
-            <p id="deficit-summary">Explore the gap between federal spending and net receipts using MTS Tables 4 and 5,
-              with notes and source documentation.</p>
-          </div>
-        </a>
-      </div>
-    </section>
-    <section aria-labelledby="principle">
-      <h2 id="principle">Guiding principle</h2>
+
+
+  </main>
+    <section class="principle" aria-label="Guiding principle">
       <blockquote>
         <p>&ldquo;Money is only a tool. It will take you wherever you wish, but it will not replace you as the
           driver.&rdquo;</p>
         <p>&mdash; Ayn Rand</p>
       </blockquote>
     </section>
-  </main>
   <footer>AccountableGuv · US Income and Spending</footer>
 </body>
 
