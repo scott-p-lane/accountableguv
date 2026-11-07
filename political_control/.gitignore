@@ -1,0 +1,5 @@
+node_modules/
+__pycache__/
+source/legislators-*.json
+source/datasets.json
+source/preview-*.png

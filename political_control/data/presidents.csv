@@ -1,0 +1,11 @@
+presidency_number,president,party,office_start_date,office_end_date,source_url,party_source_url,retrieved_on
+38,Gerald Ford,Republican,1974-08-09,1977-01-20,https://history.house.gov/Institution/Presidents-Coinciding/Presidents-Coinciding/,https://history.house.gov/Institution/Presidents-Coinciding/Party-Government/,2026-11-06
+39,Jimmy Carter,Democrat,1977-01-20,1981-01-20,https://history.house.gov/Institution/Presidents-Coinciding/Presidents-Coinciding/,https://history.house.gov/Institution/Presidents-Coinciding/Party-Government/,2026-11-06
+40,Ronald Reagan,Republican,1981-01-20,1989-01-20,https://history.house.gov/Institution/Presidents-Coinciding/Presidents-Coinciding/,https://history.house.gov/Institution/Presidents-Coinciding/Party-Government/,2026-11-06
+41,George H. W. Bush,Republican,1989-01-20,1993-01-20,https://history.house.gov/Institution/Presidents-Coinciding/Presidents-Coinciding/,https://history.house.gov/Institution/Presidents-Coinciding/Party-Government/,2026-11-06
+42,Bill Clinton,Democrat,1993-01-20,2001-01-20,https://history.house.gov/Institution/Presidents-Coinciding/Presidents-Coinciding/,https://history.house.gov/Institution/Presidents-Coinciding/Party-Government/,2026-11-06
+43,George W. Bush,Republican,2001-01-20,2009-01-20,https://history.house.gov/Institution/Presidents-Coinciding/Presidents-Coinciding/,https://history.house.gov/Institution/Presidents-Coinciding/Party-Government/,2026-11-06
+44,Barack Obama,Democrat,2009-01-20,2017-01-20,https://history.house.gov/Institution/Presidents-Coinciding/Presidents-Coinciding/,https://history.house.gov/Institution/Presidents-Coinciding/Party-Government/,2026-11-06
+45,Donald Trump,Republican,2017-01-20,2021-01-20,https://history.house.gov/Institution/Presidents-Coinciding/Presidents-Coinciding/,https://history.house.gov/Institution/Presidents-Coinciding/Party-Government/,2026-11-06
+46,Joe Biden,Democrat,2021-01-20,2025-01-20,https://history.house.gov/Institution/Presidents-Coinciding/Presidents-Coinciding/,https://history.house.gov/Institution/Presidents-Coinciding/Party-Government/,2026-11-06
+47,Donald Trump,Republican,2025-01-20,,https://history.house.gov/Institution/Presidents-Coinciding/Presidents-Coinciding/,https://history.house.gov/Institution/Presidents-Coinciding/Party-Government/,2026-11-06
