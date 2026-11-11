@@ -43,5 +43,11 @@ and refresh workflow for local reports.
   tracing, derives row types from printed headings and totals, and normalizes
   workbook labels where there is a direct match. Workbook filters based on
   unavailable codes or historical labels may need adjustment.
+- Table 1 derives `sequence_level_nbr` and `sequence_number_cd` from the printed
+  fiscal-year headings, months, and year-to-date rows. The prior fiscal year
+  uses code `1` and the current fiscal year uses `2`. Their detail rows use
+  codes such as `1.1` and `2.1` for October. To populate these fields in
+  existing data, rerun the archive download and Glue load for the affected
+  months, then refresh the exports and local reports.
 
 [Treasury's Previous Issues archive](https://fiscal.treasury.gov/accounting/monthly-treasury-statement/previous)

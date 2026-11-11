@@ -13,10 +13,13 @@ AMOUNT_SEPARATORS = str.maketrans("", "", ", .")
 FIELD = re.compile(r"\S(?:[^\t\r\n]*?\S)?(?= {2,}|\t|\s*$)")
 NOTES = re.compile(
     r"^\s*(?:[0-9-]?REPORT ID:|USER ID\s*:|DATE:|FOOTNOTES?:|\d+/\s{2,}[A-Za-z]|"
-    r"Note:\s+Details|STAR - TREASURY FINANCIAL DATABASE|Daily Treasury Statement \(Available)", re.I,
+    r"Note:\s+Details|STAR - TREASURY FINANCIAL DATABASE|Daily Treasury Statement \(Available|"
+    r"PAGE\s+\d+\(\d+\)\s*$)", re.I,
 )
 MONTHS = {name.upper(): f"{short.lower()}_rcpt_outly_amt"
           for name, short in zip(month_name[1:], month_abbr[1:])}
+FISCAL_MONTH_NUMBERS = {name.upper(): index for index, name in enumerate(
+    month_name[10:] + month_name[1:10], start=1)}
 FINANCING = "current_month_net_txn_amt fytd_net_txn_amt prior_fytd_net_txn_amt"
 BALANCES = "begin_year_acct_bal_amt begin_month_acct_bal_amt close_month_acct_bal_amt"
 RECEIPTS_OUTLAYS = "current_month_rcpt_outly_amt current_fytd_rcpt_outly_amt prior_fytd_rcpt_outly_amt"
@@ -222,7 +225,26 @@ def merge_rows(sections, report_date, table, schema):
                              classification_id=f"archive:{report_date}:{table}:{source_line}"))
     if not any(any(row[key] is not None for key in seen_fields) for row in rows):
         raise ValueError(f"Table {table} contains no published amounts")
+    if table == 1:
+        assign_table_1_sequences(rows, fiscal_year, fiscal_month)
     return rows
+
+
+def assign_table_1_sequences(rows, fiscal_year, fiscal_month):
+    headings = {f"FY {fiscal_year - 1}": "1", f"FY {fiscal_year}": "2"}
+    fiscal_group = None
+    for row in rows:
+        label = row["classification_desc"].upper()
+        if label in headings:
+            fiscal_group = headings[label]
+            row.update(sequence_level_nbr="1", sequence_number_cd=fiscal_group)
+            continue
+        position = FISCAL_MONTH_NUMBERS.get(label)
+        if label == "YEAR-TO-DATE":
+            position = 13 if fiscal_group == "1" else fiscal_month + 1
+        if fiscal_group is None or position is None:
+            raise ValueError(f"Unexpected Table 1 row on source line {row['src_line_nbr']}: {label}")
+        row.update(sequence_level_nbr="2", sequence_number_cd=f"{fiscal_group}.{position}")
 
 
 def display_label(table, label, fiscal_year):
