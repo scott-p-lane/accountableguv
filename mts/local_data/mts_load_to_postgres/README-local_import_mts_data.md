@@ -3,54 +3,40 @@
 `create_mts_table_1.sql` through `create_mts_table_9.sql` create the tables in schema `mts`.
 `load_mts_table_1.sql` through `load_mts_table_9.sql` each create a missing table
 and load its matching Athena CSV. `load_mts_data.sql` calls all nine loaders in
-one transaction. These scripts load CSV files from
-[the Athena exports](athena_export/README.md).
+one transaction. The [lakehouse Glue export job](../../aws/mts_lakehouse/README-lakehouse_for_mts_data.md)
+generates the Athena CSVs.
 
-## Export and download
+## Run the Glue export and load PostgreSQL
 
-From the repository root, with boto3 installed and AWS credentials configured:
-
-```powershell
-python local_data/athena_export/export_all_mts.py --region us-east-1 --profile your-profile --s3-prefix s3://YOUR-RESULTS-BUCKET/queries/postgres-exports/
-```
-
-Wait for the export job or command to finish successfully, then download:
-
-```powershell
-aws s3 cp s3://YOUR-RESULTS-BUCKET/queries/postgres-exports/RUN-FOLDER/ exports/mts-download/ --recursive --exclude '*' --include '*.csv' --profile your-profile --region us-east-1
-```
-
-Replace bucket, run folder, profile, and region with your actual values. The nine
-individual Athena SQL scripts remain available for individual exports.
-
-## Load with psql
-
-To download the completed S3 exports into `mts/local_data/mts_export` and load
-all nine tables in one command, run this from the repository root:
+With the lakehouse export job deployed, run this from the repository root:
 
 ```powershell
 ./mts/local_data/mts_load_to_postgres/load_exports.ps1 -Profile YOUR-AWS-PROFILE
 ```
 
-Defaults are S3 `s3://acctguv-feeds-us-east-2/exports/mts_exports/`, region
-`us-east-2`, and PostgreSQL database `mts` with user `postgres` on
-`localhost:5432`. Omit `-Profile` to use default AWS credentials. Override
-`-Database`, `-DbUser`, `-DbHost`, `-DbPort`, or `-CsvDirectory` as needed:
+The script starts `MTS-Lakehouse-mts-export` in `us-east-2` and waits for
+that run to reach `SUCCEEDED`. It downloads all nine CSVs from the job's
+configured `--output_s3` folder, then loads them in one PostgreSQL transaction.
+The default database is `mts` with user `postgres` on `localhost:5432`.
+After the load succeeds, the CSVs are saved to `mts/local_data/mts_export`.
 
-```powershell
-./mts/local_data/mts_load_to_postgres/load_exports.ps1 -Profile YOUR-AWS-PROFILE -Database mts -CsvDirectory './mts/local_data/mts_export'
-```
+Omit `-Profile` to use default AWS credentials. Use `-Region` and
+`-ExportJobName` if your deployment differs. Find the job name in the
+lakehouse stack's `ExportGlueJobName` output. You can also override
+`-Database`, `-DbUser`, `-DbHost`, `-DbPort`, or `-CsvDirectory`.
+If you pass `-S3Prefix`, it must match the job's configured export folder.
 
 AWS CLI and psql must be installed. The script also finds PostgreSQL 18 at its
 standard Windows installation path; `-PsqlExecutable` can specify another full
 path. PostgreSQL uses its password file or prompts for your password. Your AWS
-identity needs S3 read access to the export objects. The download checks the
-successful download of all nine CSVs; if any download fails, it stops before
-loading the database. Run this only after Glue succeeds and while no new export
-is running, since the script does not check for concurrent export changes. Failed
-downloads leave a `.download-*` folder for inspection. Successful downloads
-replace local export copies and invoke the combined SQL loader, which replaces
-all nine database tables in one transaction.
+identity needs `glue:GetJob`, `glue:StartJobRun`, `glue:GetJobRun`, and
+`glue:GetJobRuns` on the export job, plus S3 read access to the CSVs.
+If Glue fails, a CSV download fails, or a newer run of the job is detected
+during download, the script stops before invoking PostgreSQL. Download or
+load failures leave the `.download-*` folder for inspection. PostgreSQL
+output is saved to `postgres_load.log` in the CSV directory.
+
+## Load existing CSVs with psql
 
 Pass the CSV folder using `-v csv_dir="..."`. It works from any current directory
 and supports folder names containing spaces. For all nine tables:
