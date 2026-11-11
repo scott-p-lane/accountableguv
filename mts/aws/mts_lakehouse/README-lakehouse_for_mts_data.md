@@ -78,8 +78,9 @@ keeps existing deployments working without an export-script upload.
 
 ## Load a report or a range of feeds
 
-Supply `--base_prefix` to recursively discover all `manifest.json` objects under
-a source location in the configured feeds bucket:
+Supply `--base_prefix` to discover manifests under a source location, or set
+both `--start_date` and `--end_date` to select an inclusive range of report
+month-end dates in `YYYY-MM-DD` format.
 
 | Job parameter | Reports selected |
 | --- | --- |
@@ -103,9 +104,10 @@ Glue role `s3:ListBucket` limited to `mts/*`, upload the revised script to a new
 immutable key, and update `GlueScriptObjectKey`. Set `GlueTimeoutMinutes` high
 enough for your backfill. The table bucket and existing tables stay in place.
 
-`--base_prefix` is required and is the only feed-selection parameter. The
-stack's `REQUIRED` placeholder fails until replaced with a valid prefix. For a
-single month, use a prefix such as `mts/2026/08`. Remove the old
+With both dates supplied, the default `--base_prefix` placeholder
+`REQUIRED` searches under `mts/`. A specified prefix narrows the date
+range to manifests under that prefix. For a single month, you can also
+use a prefix such as `mts/2026/08` with both dates left at `unset`. Remove the old
 `--manifest_key` and `--manifest_version_id` arguments from saved run commands
 or overrides when updating. Manifest key/version columns remain in the tables
 as source lineage; they are not job parameters.

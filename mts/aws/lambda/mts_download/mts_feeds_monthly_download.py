@@ -112,12 +112,16 @@ def report_dates_between(start, end):
         month = month_end + timedelta(days=1)
 
 
-def report_objects(today, report_date=None):
+def report_objects(today, report_date=None, *, base_prefix="mts"):
     if report_date is None:
         report_date = latest_report_date(today)
-    prefix = f"mts/{report_date:%Y}/{report_date:%m}"
     # Validate every table before starting uploads, preventing incomplete API downloads.
     tables = {table: fetch_table(table, report_date) for table in TABLES}
+    return build_report_objects(report_date, tables, base_prefix=base_prefix)
+
+
+def build_report_objects(report_date, tables, *, base_prefix="mts"):
+    prefix = f"{base_prefix}/{report_date:%Y/%m}"
     files = []
     objects = []
     for table, payload in tables.items():
@@ -131,8 +135,8 @@ def report_objects(today, report_date=None):
     return report_date, prefix, objects
 
 
-def store_latest(bucket, s3, today, report_date=None):
-    report_date, prefix, objects = report_objects(today, report_date)
+def store_latest(bucket, s3, today, report_date=None, *, prepare_report=report_objects):
+    report_date, prefix, objects = prepare_report(today, report_date)
     for key, payload in objects:
         status, _ = store_json(bucket, s3, key, payload, report_date)
         LOGGER.info("MTS object %s: %s", key, status)
@@ -142,8 +146,8 @@ def store_latest(bucket, s3, today, report_date=None):
     return result
 
 
-def store_local(output_dir, today, report_date=None):
-    report_date, prefix, objects = report_objects(today, report_date)
+def store_local(output_dir, today, report_date=None, *, prepare_report=report_objects):
+    report_date, prefix, objects = prepare_report(today, report_date)
     output_dir = Path(output_dir).resolve()
     changed = False
     for key, payload in objects:
@@ -168,8 +172,8 @@ def lambda_handler(event, context):
     )
 
 
-def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
+def main(argv=None, *, prepare_report=report_objects, archive_bounds=None, description=__doc__):
+    parser = argparse.ArgumentParser(description=description)
     destination = parser.add_mutually_exclusive_group()
     destination.add_argument("--bucket", help="Explicitly upload to this existing S3 bucket instead of local files")
     destination.add_argument("--output-dir", type=Path,
@@ -184,12 +188,17 @@ def main(argv=None):
     dates = None
     if (args.start_date is None) != (args.end_date is None):
         parser.error("--start-date and --end-date must be supplied together")
+    if archive_bounds and args.start_date is None:
+        parser.error("Supply --start-date and --end-date for an archive backfill")
     if args.start_date is not None:
         if args.start_date > args.end_date:
             parser.error("--start-date must be on or before --end-date")
         dates = list(report_dates_between(args.start_date, args.end_date))
         if not dates:
             parser.error("The date range must include at least one month-end report date")
+        if archive_bounds and (dates[0] < archive_bounds[0] or dates[-1] > archive_bounds[1]):
+            parser.error(f"Supported archive report dates are {archive_bounds[0]} through "
+                         f"{archive_bounds[1]}.")
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     today = datetime.now(timezone.utc).date()
     if not args.bucket:
@@ -197,7 +206,8 @@ def main(argv=None):
             parser.error("--profile and --region apply only with --bucket")
         output_dir = args.output_dir or Path(__file__).resolve().parents[3] / "test" / "data"
         try:
-            result = ([store_local(output_dir, today, report_date) for report_date in dates]
+            result = ([store_local(output_dir, today, report_date, prepare_report=prepare_report)
+                       for report_date in dates]
                       if dates is not None else store_local(output_dir, today))
         except (OSError, ValueError, KeyError) as error:
             LOGGER.error("MTS download failed: %s", error)
@@ -213,7 +223,8 @@ def main(argv=None):
     try:
         session = boto3.Session(profile_name=args.profile, region_name=args.region)
         s3 = session.client("s3")
-        result = ([store_latest(args.bucket, s3, today, report_date) for report_date in dates]
+        result = ([store_latest(args.bucket, s3, today, report_date, prepare_report=prepare_report)
+                   for report_date in dates]
                   if dates is not None else store_latest(args.bucket, s3, today))
     except (BotoCoreError, ClientError, URLError, TimeoutError, ValueError, KeyError) as error:
         LOGGER.error("MTS download failed: %s", error)

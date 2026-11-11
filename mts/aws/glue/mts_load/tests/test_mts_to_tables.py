@@ -207,6 +207,29 @@ class DiscoveryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "No MTS manifests"):
             loader.select_manifests(s3, "feeds", "mts")
 
+    def test_date_range_selects_inclusive_month_ends_across_years(self):
+        s3 = Mock()
+        s3.get_paginator.return_value.paginate.return_value = [{"Contents": [
+            {"Key": f"mts/{month}/manifest.json"}
+            for month in ("2024/03", "2023/11", "2024/02", "2023/12")
+        ]}]
+        bounds = {"start_date": "2023-12-31", "end_date": "2024-02-29"}
+        self.assertEqual(loader.select_manifests(s3, "feeds", "REQUIRED", **bounds), [
+            "mts/2023/12/manifest.json", "mts/2024/02/manifest.json"])
+        self.assertEqual(loader.select_manifests(s3, "feeds", "mts/2024", **bounds), [
+            "mts/2024/02/manifest.json"])
+        with self.assertRaisesRegex(ValueError, "No MTS manifests.*2024-02-28"):
+            loader.select_manifests(s3, "feeds", "mts", start_date="2024-02-01",
+                                    end_date="2024-02-28")
+
+    def test_invalid_date_bounds_fail_before_listing(self):
+        s3 = Mock()
+        for start, end in (("2025-01-01", "unset"), ("2025-02-29", "2025-03-01"),
+                           ("20250101", "2025-02-01"), ("2025-02-01", "2025-01-01")):
+            with self.subTest(start=start, end=end), self.assertRaisesRegex(ValueError, "--start_date"):
+                loader.select_manifests(s3, "feeds", "mts", start_date=start, end_date=end)
+        s3.get_paginator.assert_not_called()
+
     def test_missing_or_invalid_prefix_fails_before_listing(self):
         for prefix in (None, "", "REQUIRED", "other", "s3://feeds/mts", "/mts",
                        "mts/2025/13", "mts/2025/../2026", "mts/2025/01/manifest.json"):

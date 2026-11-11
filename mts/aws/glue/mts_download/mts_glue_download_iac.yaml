@@ -1,0 +1,137 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: On-demand AWS Glue Python shell job for bulk Treasury MTS downloads.
+
+Parameters:
+  CodeBucketName:
+    Type: String
+    AllowedPattern: '[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]'
+    Description: Existing same-region S3 bucket holding the job script and wheel.
+  CodePrefix:
+    Type: String
+    Default: glue/mts-download/v1
+    AllowedPattern: '[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*'
+    Description: S3 prefix containing both deployment files.
+  FeedsBucketName:
+    Type: String
+    Default: ''
+    AllowedPattern: '([a-z0-9][a-z0-9.-]{1,61}[a-z0-9])?'
+    Description: Existing feeds bucket. Empty uses acctguv-feeds in this region.
+  AlternateBucketName:
+    Type: String
+    Default: ''
+    AllowedPattern: '([a-z0-9][a-z0-9.-]{1,61}[a-z0-9])?'
+    Description: Existing optional destination bucket. Can be the feeds bucket for an alternate prefix.
+  AlternateReportPrefix:
+    Type: String
+    Default: mts
+    AllowedPattern: '[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*'
+    Description: S3 prefix in the alternate bucket under which report years are written.
+  TimeoutMinutes:
+    Type: Number
+    Default: 180
+    MinValue: 1
+    MaxValue: 2880
+
+Conditions:
+  UseRegionalFeedsBucket: !Equals [!Ref FeedsBucketName, '']
+  HasAlternateDestination: !Not [!Equals [!Ref AlternateBucketName, '']]
+
+Resources:
+  DownloadRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: glue.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DownloadMtsReports
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:s3:::${CodeBucketName}/${CodePrefix}/download_mts_reports.py'
+                  - !Sub 'arn:${AWS::Partition}:s3:::${CodeBucketName}/${CodePrefix}/mts_glue_download-1.0-py3-none-any.whl'
+              - Effect: Allow
+                Action: s3:GetBucketLocation
+                Resource: !Sub 'arn:${AWS::Partition}:s3:::${CodeBucketName}'
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !If
+                  - UseRegionalFeedsBucket
+                  - !Sub 'arn:${AWS::Partition}:s3:::acctguv-feeds-${AWS::Region}'
+                  - !Sub 'arn:${AWS::Partition}:s3:::${FeedsBucketName}'
+                Condition:
+                  StringLike:
+                    s3:prefix: 'mts/*'
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject]
+                Resource: !If
+                  - UseRegionalFeedsBucket
+                  - !Sub 'arn:${AWS::Partition}:s3:::acctguv-feeds-${AWS::Region}/mts/*'
+                  - !Sub 'arn:${AWS::Partition}:s3:::${FeedsBucketName}/mts/*'
+              - !If
+                - HasAlternateDestination
+                - Effect: Allow
+                  Action: s3:ListBucket
+                  Resource: !Sub 'arn:${AWS::Partition}:s3:::${AlternateBucketName}'
+                  Condition:
+                    StringLike:
+                      s3:prefix: !Sub '${AlternateReportPrefix}/*'
+                - !Ref 'AWS::NoValue'
+              - !If
+                - HasAlternateDestination
+                - Effect: Allow
+                  Action: [s3:GetObject, s3:PutObject]
+                  Resource: !Sub 'arn:${AWS::Partition}:s3:::${AlternateBucketName}/${AlternateReportPrefix}/*'
+                - !Ref 'AWS::NoValue'
+              - Effect: Allow
+                Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws-glue/python-jobs/*'
+
+  DownloadJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: !Sub '${AWS::StackName}-mts-download'
+      Description: Download an inclusive report-month range from the Treasury archive and Fiscal Data API.
+      Role: !GetAtt DownloadRole.Arn
+      Command:
+        Name: pythonshell
+        PythonVersion: '3.9'
+        ScriptLocation: !Sub 's3://${CodeBucketName}/${CodePrefix}/download_mts_reports.py'
+      MaxCapacity: 0.0625
+      MaxRetries: 0
+      Timeout: !Ref TimeoutMinutes
+      ExecutionProperty:
+        MaxConcurrentRuns: 1
+      DefaultArguments:
+        '--start_year': 'unset'
+        '--start_month': 'unset'
+        '--end_year': 'unset'
+        '--end_month': 'unset'
+        '--destination': 'default'
+      NonOverridableArguments:
+        '--library-set': none
+        '--extra-py-files': !Sub 's3://${CodeBucketName}/${CodePrefix}/mts_glue_download-1.0-py3-none-any.whl'
+        '--default_bucket': !If [UseRegionalFeedsBucket, !Sub 'acctguv-feeds-${AWS::Region}', !Ref FeedsBucketName]
+        '--alternate_destination': !If
+          - HasAlternateDestination
+          - !Sub 's3://${AlternateBucketName}/${AlternateReportPrefix}'
+          - !If [UseRegionalFeedsBucket, !Sub 's3://acctguv-feeds-${AWS::Region}/mts', !Sub 's3://${FeedsBucketName}/mts']
+
+Outputs:
+  DownloadGlueJobName:
+    Value: !Ref DownloadJob
+  DefaultDestination:
+    Value: !If
+      - UseRegionalFeedsBucket
+      - !Sub 's3://acctguv-feeds-${AWS::Region}/mts'
+      - !Sub 's3://${FeedsBucketName}/mts'
+  AlternateDestination:
+    Condition: HasAlternateDestination
+    Value: !Sub 's3://${AlternateBucketName}/${AlternateReportPrefix}'

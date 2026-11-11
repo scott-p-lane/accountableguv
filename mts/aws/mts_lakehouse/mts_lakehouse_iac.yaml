@@ -307,7 +307,7 @@ Resources:
     DependsOn: MtsTableNamespace
     Properties:
       Name: !Sub '${AWS::StackName}-mts-load'
-      Description: Load all manifests beneath an MTS base prefix into nine Iceberg tables.
+      Description: Load MTS manifests selected by prefix or report date range into nine Iceberg tables.
       Role: !GetAtt MtsGlueRole.Arn
       GlueVersion: '5.0'
       JobMode: SCRIPT
@@ -323,6 +323,8 @@ Resources:
         MaxConcurrentRuns: 1
       DefaultArguments:
         '--base_prefix': REQUIRED
+        '--start_date': 'unset'
+        '--end_date': 'unset'
         '--enable-metrics': 'true'
         '--job-language': python
       NonOverridableArguments:

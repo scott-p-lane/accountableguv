@@ -4,6 +4,8 @@ Each report's source validation runs before its table writes. Each table's repor
 replaced atomically; the nine tables are not a single transaction.
 """
 
+import argparse
+from calendar import monthrange
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation, localcontext
 import hashlib
@@ -160,7 +162,22 @@ def table_columns(table):
             **LINEAGE_TYPES}
 
 
-def select_manifests(s3, bucket, base_prefix):
+def select_manifests(s3, bucket, base_prefix, *, start_date=None, end_date=None):
+    start_date = None if start_date in (None, "", "unset") else start_date
+    end_date = None if end_date in (None, "", "unset") else end_date
+    if (start_date is None) != (end_date is None):
+        raise ValueError("Supply --start_date and --end_date together")
+    if start_date is not None:
+        try:
+            start, end = date.fromisoformat(start_date), date.fromisoformat(end_date)
+            if (start.isoformat(), end.isoformat()) != (start_date, end_date):
+                raise ValueError
+        except ValueError as error:
+            raise ValueError("--start_date and --end_date must be valid YYYY-MM-DD dates") from error
+        if start > end:
+            raise ValueError("--start_date must be on or before --end_date")
+        if base_prefix in (None, "", "REQUIRED"):
+            base_prefix = "mts"
     if not base_prefix:
         raise ValueError("Supply --base_prefix")
     prefix = base_prefix.rstrip("/")
@@ -175,9 +192,15 @@ def select_manifests(s3, bucket, base_prefix):
             if key.startswith(prefix) and key.endswith("/manifest.json"):
                 if not re.fullmatch(r"mts/\d{4}/(?:0[1-9]|1[0-2])/manifest\.json", key):
                     raise ValueError(f"Unexpected MTS manifest location: {key}")
+                if start_date is not None:
+                    year, month = int(key[4:8]), int(key[9:11])
+                    report_date = date(year, month, monthrange(year, month)[1])
+                    if not start <= report_date <= end:
+                        continue
                 keys.add(key)
     if not keys:
-        raise ValueError(f"No MTS manifests found under s3://{bucket}/{prefix}")
+        date_filter = f" for report dates {start} through {end}" if start_date is not None else ""
+        raise ValueError(f"No MTS manifests found under s3://{bucket}/{prefix}{date_filter}")
     return sorted(keys)
 
 
@@ -232,9 +255,14 @@ def main():
     names = ["JOB_NAME", "feeds_bucket", "table_bucket_arn", "namespace", "region",
              "rest_endpoint", "base_prefix"]
     args = getResolvedOptions(sys.argv, names)
+    date_options = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+    date_options.add_argument("--start_date")
+    date_options.add_argument("--end_date")
+    bounds, _ = date_options.parse_known_args(sys.argv[1:])
     logging.basicConfig(level=logging.INFO)
     s3 = boto3.client("s3", region_name=args["region"])
-    keys = select_manifests(s3, args["feeds_bucket"], args["base_prefix"])
+    keys = select_manifests(s3, args["feeds_bucket"], args["base_prefix"],
+                            start_date=bounds.start_date, end_date=bounds.end_date)
     LOGGER.info("Selected %s manifests", len(keys))
     builder = SparkSession.builder.appName(args["JOB_NAME"])
     settings = {

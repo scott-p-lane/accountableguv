@@ -105,7 +105,7 @@ directory. They require Python and internet access, but no AWS credentials or Bo
 From the repository root, run:
 
 ```powershell
-python aws_iac/lambda/mts_download/mts_feeds_monthly_download.py
+python mts_feeds_monthly_download.py
 ```
 
 For a December 2025 report, the files are written to `test/data/mts/2025/12`,
@@ -116,13 +116,13 @@ is ignored by Git.
 To use a different local data root (the script appends `mts/YYYY/MM`):
 
 ```powershell
-python aws_iac/lambda/mts_download/mts_feeds_monthly_download.py --output-dir ./other-data
+python mts_feeds_monthly_download.py --output-dir ./other-data
 ```
 
 To download a range of monthly reports, supply both inclusive date bounds:
 
 ```powershell
-python aws_iac/lambda/mts_download/mts_feeds_monthly_download.py --start-date 2025-01-01 --end-date 2025-12-31
+python mts_feeds_monthly_download.py --start-date 2025-01-01 --end-date 2025-12-31
 ```
 
 Dates use `YYYY-MM-DD` and refer to the report's month-end date, not its publication

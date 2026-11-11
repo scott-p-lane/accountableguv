@@ -34,8 +34,8 @@ The [feeds workflow instructions](../../../../aws_shared/for_feed_staging/README
 explain deployment and monitoring. The workflow supplies the downloaded month's
 prefix and starts Glue only after the downloader succeeds.
 
-Supply `--base_prefix` on every run. It is a bucket-relative prefix, without
-`s3://` or the bucket name. A trailing slash is optional.
+Supply `--base_prefix` or both `--start_date` and `--end_date`. The prefix is
+bucket-relative and can end with a slash.
 
 | Value | Reports selected |
 | --- | --- |
@@ -43,9 +43,10 @@ Supply `--base_prefix` on every run. It is a bucket-relative prefix, without
 | `mts/2025` | All available months in 2025. |
 | `mts` | All available months across all years. |
 
-Only these three prefix forms are supported: `mts`, `mts/YYYY`, and
-`mts/YYYY/MM` (two-digit month `01` through `12`). There is no start/end-date
-argument. Run individual month prefixes for a custom range.
+The date bounds use `YYYY-MM-DD` and include reports whose calendar month-end
+falls on or between them. For example, `2025-01-01` through `2025-03-31`
+selects January through March 2025. With dates alone, the job searches under
+`mts/`. With a prefix and dates, both must match.
 
 The job recursively lists the prefix, follows all listing pages, and selects
 `mts/YYYY/MM/manifest.json` objects in sorted key order. Other feed JSON files
@@ -71,9 +72,10 @@ is limited to 32 MiB.
 
 1. Open AWS Glue in the account and region containing the lakehouse stack.
 2. Open **ETL jobs** and select the job from the `GlueJobName` stack output.
-3. In the job's run parameters, add or replace `--base_prefix` with the desired
-   value, such as `mts/2026/08`. The deployed default, `REQUIRED`, is a placeholder
-   and must be replaced with a valid prefix.
+3. Choose **Run with parameters**. Set both date values for a bounded run and
+   leave `--base_prefix` at `REQUIRED` to search all years. For a prefix-only
+   run, set `--base_prefix` (for example, `mts/2026/08`) and leave both dates
+   at `unset`.
 4. Start the run, then open its run details to monitor status and logs.
 5. Wait for `SUCCEEDED` before consuming the loaded reports.
 
@@ -91,7 +93,7 @@ file avoids differences in shell handling of inline JSON.
 $jobName = 'accountableguv-mts-lakehouse-mts-load'
 $region = 'us-east-1'
 $argumentsPath = Join-Path ([System.IO.Path]::GetTempPath()) 'mts-load-arguments.json'
-'{"--base_prefix":"mts/2026/08"}' | Set-Content -LiteralPath $argumentsPath -Encoding ascii
+'{"--start_date":"2025-01-01","--end_date":"2025-03-31"}' | Set-Content -LiteralPath $argumentsPath -Encoding ascii
 
 $runId = aws glue start-job-run `
   --job-name $jobName `
@@ -107,14 +109,12 @@ aws glue get-job-run `
   --query 'JobRun.{State:JobRunState,Error:ErrorMessage,Started:StartedOn,Completed:CompletedOn}'
 ```
 
-Repeat `get-job-run` to check progress. For a year or full backfill, change the
-JSON file's `--base_prefix` value to `mts/2025` or `mts` before starting a new run.
+Repeat `get-job-run` to check progress. For a prefix-only run, replace the
+date arguments with `"--base_prefix":"mts/2025"` or `"--base_prefix":"mts"`.
 
 ## Job configuration and arguments
 
-With the supplied stack, `--base_prefix` is the only argument you need to supply
-at run time. These other required script arguments are configured as
-non-overridable job arguments:
+The stack configures these required script arguments as non-overridable:
 
 | Argument | Stack configuration |
 | --- | --- |
@@ -160,12 +160,12 @@ the load, and wait for the complete run to succeed before using its results.
 
 | Error or symptom | Action |
 | --- | --- |
-| Invalid prefix / default `REQUIRED` | Set `--base_prefix` to one of the supported forms above. |
+| Invalid prefix / default `REQUIRED` | Set a supported `--base_prefix` or supply both date bounds. |
 | No MTS manifests found | Check the configured feeds bucket and prefix; run the downloader if feeds are missing. |
 | SHA-256, row-count, or report-date mismatch | Check that the month has a complete, consistent feed and manifest; regenerate the complete report if needed. |
 | Source schema changed / target schema differs | Review the source schema or explicitly migrate the target schema before retrying. The loader does not alter existing schemas automatically. |
 | Access denied | Check the Glue execution role's source-list/read, source-version-read, script-read, S3 Tables, and log permissions against the template. |
-| Timeout | Increase `GlueTimeoutMinutes` or run smaller prefixes, then rerun the affected reports. |
+| Timeout | Rerun the affected reports in smaller date ranges or increase `GlueTimeoutMinutes`. |
 
 For optional Athena verification and its separate catalog integration setup,
 see [Query the MTS tables with Athena](../../mts_lakehouse/README-lakehouse_for_mts_data.md#query-the-mts-tables-with-athena).
