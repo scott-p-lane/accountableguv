@@ -1,16 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Shared staging feeds bucket and monthly Treasury MTS JSON ingestion.
+Description: Shared staging feeds bucket and developer read access.
 
 Parameters:
-  MtsCodeBucketName:
-    Type: String
-    MinLength: 3
-    MaxLength: 63
-    Description: Existing S3 bucket in this region containing the packaged MTS Lambda ZIP.
-  MtsCodeObjectKey:
-    Type: String
-    MinLength: 1
-    Description: Object key printed by package_lambda.py; upload the ZIP to this key before deployment.
   DeveloperGroupName:
     Type: String
     Description: Name of an existing IAM group in this account (not an ARN or path).
@@ -18,24 +9,6 @@ Parameters:
     AllowedPattern: '[A-Za-z0-9_+=,.@-]+'
     MinLength: 1
     MaxLength: 128
-  MtsScheduleExpression:
-    Type: String
-    Default: cron(0 18 20 * ? *)
-    Description: Monthly UTC schedule (default 18:00 UTC on the 20th, after the normal MTS release).
-  MtsScheduleState:
-    Type: String
-    Default: ENABLED
-    AllowedValues: [ENABLED, DISABLED]
-    Description: Enable or disable automatic MTS downloads.
-  MtsGlueJobName:
-    Type: String
-    Default: 'MTS-Lakehouse-mts-load'
-    AllowedPattern: '^$|[A-Za-z0-9_-]{1,255}'
-    Description: Existing same-account/region lakehouse GlueJobName output; empty keeps download-only scheduling.
-
-Conditions:
-  EnableMtsGlueLoad: !Not [!Equals [!Ref MtsGlueJobName, '']]
-
 Resources:
   FeedsBucket:
     Type: AWS::S3::Bucket
@@ -120,183 +93,9 @@ Resources:
               - s3:GetObjectVersion
             Resource: !Sub '${FeedsBucket.Arn}/*'
 
-  MtsDownloadRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: MtsDownload
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action: s3:ListBucket
-                Resource: !GetAtt FeedsBucket.Arn
-                Condition:
-                  StringLike:
-                    s3:prefix: 'mts/*'
-              - Effect: Allow
-                Action: [s3:GetObject, s3:PutObject]
-                Resource: !Sub '${FeedsBucket.Arn}/mts/*'
-              - Effect: Allow
-                Action: [logs:CreateLogStream, logs:PutLogEvents]
-                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-mts-download:*'
-
-  MtsDownloadLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-mts-download'
-      RetentionInDays: 30
-
-  MtsDownloadFunction:
-    Type: AWS::Lambda::Function
-    DependsOn: MtsDownloadLogGroup
-    Properties:
-      FunctionName: !Sub '${AWS::StackName}-mts-download'
-      Description: Download all nine MTS JSON tables using their report month as the S3 prefix.
-      Runtime: python3.13
-      Handler: mts_feeds_monthly_download.lambda_handler
-      Role: !GetAtt MtsDownloadRole.Arn
-      Timeout: 300
-      MemorySize: 512
-      Environment:
-        Variables:
-          STAGING_BUCKET_NAME: !Ref FeedsBucket
-      Code:
-        S3Bucket: !Ref MtsCodeBucketName
-        S3Key: !Ref MtsCodeObjectKey
-
-  MtsDownloadAsyncConfig:
-    Type: AWS::Lambda::EventInvokeConfig
-    Properties:
-      FunctionName: !Ref MtsDownloadFunction
-      Qualifier: '$LATEST'
-      MaximumEventAgeInSeconds: 21600
-      MaximumRetryAttempts: 2
-
-  MtsPipelineRole:
-    Type: AWS::IAM::Role
-    Condition: EnableMtsGlueLoad
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: states.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: DownloadAndLoadMts
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action: lambda:InvokeFunction
-                Resource: !GetAtt MtsDownloadFunction.Arn
-              - Effect: Allow
-                Action: [glue:StartJobRun, glue:GetJobRun, glue:GetJobRuns, glue:BatchStopJobRun]
-                Resource: !Sub 'arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/${MtsGlueJobName}'
-
-  MtsPipeline:
-    Type: AWS::StepFunctions::StateMachine
-    Condition: EnableMtsGlueLoad
-    Properties:
-      StateMachineType: STANDARD
-      RoleArn: !GetAtt MtsPipelineRole.Arn
-      Definition:
-        Comment: Download the report, then load only its month and wait for Glue success.
-        StartAt: DownloadMts
-        States:
-          DownloadMts:
-            Type: Task
-            Resource: !Sub 'arn:${AWS::Partition}:states:::lambda:invoke'
-            Parameters:
-              FunctionName: !GetAtt MtsDownloadFunction.Arn
-              Payload: {}
-            OutputPath: $.Payload
-            Retry:
-              - ErrorEquals: [Lambda.ServiceException, Lambda.AWSLambdaException, Lambda.SdkClientException, Lambda.TooManyRequestsException]
-                IntervalSeconds: 2
-                BackoffRate: 2
-                MaxAttempts: 3
-              - ErrorEquals: [States.TaskFailed]
-                IntervalSeconds: 60
-                BackoffRate: 2
-                MaxAttempts: 2
-            Next: LoadMts
-          LoadMts:
-            Type: Task
-            Resource: !Sub 'arn:${AWS::Partition}:states:::glue:startJobRun.sync'
-            Parameters:
-              JobName: !Ref MtsGlueJobName
-              Arguments:
-                '--base_prefix.$': $.prefix
-            End: true
-
-  MtsMonthlyPipelineRole:
-    Type: AWS::IAM::Role
-    Condition: EnableMtsGlueLoad
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: events.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: StartMtsPipeline
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action: states:StartExecution
-                Resource: !Ref MtsPipeline
-
-  MtsMonthlyRule:
-    Type: AWS::Events::Rule
-    DependsOn: MtsMonthlyInvokePermission
-    Properties:
-      Name: !Sub '${AWS::StackName}-mts-monthly'
-      Description: Download the latest MTS report and optionally load it with Glue after success.
-      ScheduleExpression: !Ref MtsScheduleExpression
-      State: !Ref MtsScheduleState
-      Targets:
-        - Id: MtsDownload
-          Arn: !If [EnableMtsGlueLoad, !Ref MtsPipeline, !GetAtt MtsDownloadFunction.Arn]
-          RoleArn: !If [EnableMtsGlueLoad, !GetAtt MtsMonthlyPipelineRole.Arn, !Ref 'AWS::NoValue']
-          Input: '{}'
-          RetryPolicy:
-            MaximumEventAgeInSeconds: 86400
-            MaximumRetryAttempts: 3
-
-  MtsMonthlyInvokePermission:
-    Type: AWS::Lambda::Permission
-    Properties:
-      FunctionName: !Ref MtsDownloadFunction
-      Action: lambda:InvokeFunction
-      Principal: events.amazonaws.com
-      SourceAccount: !Ref AWS::AccountId
-      SourceArn: !Sub 'arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/${AWS::StackName}-mts-monthly'
-
 Outputs:
-  MtsPipelineArn:
-    Condition: EnableMtsGlueLoad
-    Description: Scheduled download/load workflow; invoke this instead of Lambda for a manual end-to-end run.
-    Value: !Ref MtsPipeline
-  MtsDownloadFunctionName:
-    Description: Function to invoke manually with an empty JSON event.
-    Value: !Ref MtsDownloadFunction
-  MtsDownloadFunctionArn:
-    Value: !GetAtt MtsDownloadFunction.Arn
   FeedsBucketName:
-    Description: Bucket name for feed uploads and Lambda environment variables.
+    Description: Bucket name for feed uploads.
     Value: !Ref FeedsBucket
   FeedsBucketArn:
     Description: Bucket ARN for IAM policies and integration with other resources.

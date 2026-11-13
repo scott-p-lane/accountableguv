@@ -53,14 +53,14 @@ class MtsDownloadTests(unittest.TestCase):
     def test_local_range_writes_each_month_without_latest_lookup(self):
         with TemporaryDirectory() as output, \
              patch.object(handler, "latest_report_date") as latest, \
-             patch.object(handler, "fetch_table", side_effect=lambda table, day: {
-                 "data": [{"record_date": str(day)}]}) as fetch, patch("builtins.print"):
+             patch.object(handler, "fetch_table_pages", return_value=[("https://example.test", b"{}")]) as fetch, \
+             patch("builtins.print"):
             self.assertEqual(handler.main(["--output-dir", output, "--start-date", "2023-12-31",
                                            "--end-date", "2024-02-29"]), 0)
             for month, day in (("2023/12", "2023-12-31"), ("2024/01", "2024-01-31"),
                                ("2024/02", "2024-02-29")):
                 directory = Path(output) / "mts" / month
-                self.assertEqual(len(list(directory.glob("*.json"))), 10)
+                self.assertEqual(len(list(directory.rglob("*.json"))), 10)
                 self.assertEqual(json.loads((directory / "manifest.json").read_text())["report_date"], day)
             self.assertEqual(fetch.call_count, 27)
             latest.assert_not_called()
@@ -93,9 +93,8 @@ class MtsDownloadTests(unittest.TestCase):
             return json.dumps({"data": [{"record_date": "2026-08-31", "value": value}],
                                "meta": {"total-count": 2, "labels": {"value": "Value"}}}).encode()
         with patch.object(handler, "download", side_effect=[page(1), page(2)]) as download:
-            payload = handler.fetch_table("mts_table_5", date(2026, 8, 31))
-        self.assertEqual(len(payload["data"]), 2)
-        self.assertEqual(payload["meta"]["count"], 2)
+            pages = handler.fetch_table_pages("mts_table_5", date(2026, 8, 31))
+        self.assertEqual([body for _, body in pages], [page(1), page(2)])
         self.assertIn("record_date%3Aeq%3A2026-08-31", download.call_args_list[0].args[0])
         self.assertIn("page%5Bnumber%5D=2", download.call_args_list[1].args[0])
 
@@ -103,12 +102,12 @@ class MtsDownloadTests(unittest.TestCase):
         payload = {"data": [{"record_date": "2026-07-31"}], "meta": {"total-count": 1}}
         with patch.object(handler, "download", return_value=json.dumps(payload).encode()):
             with self.assertRaisesRegex(ValueError, "Invalid report dates"):
-                handler.fetch_table("mts_table_1", date(2026, 8, 31))
+                handler.fetch_table_pages("mts_table_1", date(2026, 8, 31))
 
     def test_failed_table_causes_no_uploads(self):
         s3 = FakeS3()
         with patch.object(handler, "latest_report_date", return_value=date(2026, 8, 31)), \
-             patch.object(handler, "fetch_table", side_effect=ValueError("Unavailable table")):
+             patch.object(handler, "fetch_table_pages", side_effect=ValueError("Unavailable table")):
             with self.assertRaises(ValueError):
                 handler.store_latest("staging", s3, date(2026, 9, 20))
         self.assertEqual(s3.writes, [])
@@ -117,18 +116,20 @@ class MtsDownloadTests(unittest.TestCase):
         s3 = FakeS3()
 
         def table(name, report_date):
-            return {"report_date": str(report_date), "data": [{"record_date": str(report_date), "table": name}]}
+            return [("https://example.test/" + name, f'{{ "record_date": "{report_date}" }}\n'.encode())]
 
         with patch.object(handler, "latest_report_date", return_value=date(2025, 12, 31)), \
-             patch.object(handler, "fetch_table", side_effect=table):
+             patch.object(handler, "fetch_table_pages", side_effect=table):
             result = handler.store_latest("staging", s3, date(2026, 1, 20))
             self.assertEqual(result["prefix"], "mts/2025/12")
             self.assertEqual(len(s3.writes), 10)
             self.assertEqual(s3.writes[-1]["Key"], "mts/2025/12/manifest.json")
             manifest = json.loads(s3.writes[-1]["Body"])
+            self.assertEqual(manifest["format"], "treasury-fiscal-data-api")
             self.assertEqual(len(manifest["files"]), 9)
             for entry in manifest["files"]:
                 body = s3.objects[entry["key"]]["Body"]
+                self.assertEqual(body, b'{ "record_date": "2025-12-31" }\n')
                 self.assertEqual(entry["sha256"], hashlib.sha256(body).hexdigest())
             again = handler.store_latest("staging", s3, date(2026, 1, 20))
             self.assertEqual(again["status"], "unchanged")
@@ -141,7 +142,7 @@ class MtsDownloadTests(unittest.TestCase):
         s3 = FakeS3()
         key = "mts/2026/08/mts_table_1.json"
         for value in (1, 2):
-            handler.store_json("staging", s3, key, {"value": value}, date(2026, 8, 31))
+            handler.store_object("staging", s3, key, str(value).encode(), date(2026, 8, 31))
         self.assertEqual(len(s3.writes), 2)
 
     def test_package_contains_exact_source_with_stable_key(self):
@@ -179,7 +180,7 @@ class MtsDownloadTests(unittest.TestCase):
 
     def test_template_references_external_package(self):
         source = Path(handler.__file__).resolve()
-        template = source.parents[2] / "cloud-formation-templates" / "feeds_staging" / "feeds_staging_iac.yaml"
+        template = source.parents[2] / "mts_lakehouse" / "mts_lakehouse_iac.yaml"
         content = template.read_text(encoding="utf-8")
         self.assertNotIn("ZipFile:", content)
         self.assertIn("Handler: mts_feeds_monthly_download.lambda_handler", content)
@@ -210,12 +211,12 @@ class MtsDownloadTests(unittest.TestCase):
     def test_local_files_use_report_month_and_have_no_aws_dependency(self):
         with TemporaryDirectory() as output, \
              patch.object(handler, "latest_report_date", return_value=date(2025, 12, 31)), \
-             patch.object(handler, "fetch_table", return_value={"data": [{"record_date": "2025-12-31"}]}), \
+             patch.object(handler, "fetch_table_pages", return_value=[("https://example.test", b"{}")]), \
              patch.dict("sys.modules", {"boto3": None}), \
              patch("builtins.print"):
             self.assertEqual(handler.main(["--output-dir", output]), 0)
             directory = Path(output) / "mts" / "2025" / "12"
-            self.assertEqual(len(list(directory.glob("*.json"))), 10)
+            self.assertEqual(len(list(directory.rglob("*.json"))), 10)
             manifest = json.loads((directory / "manifest.json").read_text())
             for entry in manifest["files"]:
                 body = (Path(output) / entry["key"]).read_bytes()

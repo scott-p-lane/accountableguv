@@ -18,14 +18,12 @@ LIBRARY = "mts_glue_download-1.0-py3-none-any.whl"
 def package(output_dir):
     output_dir.mkdir(parents=True, exist_ok=True)
     library = output_dir / LIBRARY
-    downloader_modules = (
-        "mts_feeds_monthly_download.py",
-        "mts_feeds_pre_march_2015_download.py",
-        "mts_pre_march_2015_transform.py",
-    )
-    files = {name: (LAMBDA / name).read_bytes() for name in downloader_modules}
-    files["mts/aws/glue/mts_load/mts_to_tables.py"] = (HERE.parent / "mts_load/mts_to_tables.py").read_bytes()
-    # Include the loader schema at its existing import path.
+    files = {
+        "mts_feeds_monthly_download.py": (LAMBDA / "mts_feeds_monthly_download.py").read_bytes(),
+        "mts_feeds_pre_march_2015_download.py": (HERE / "mts_feeds_pre_march_2015_download.py").read_bytes(),
+    }
+    for name in ("mts_pre_march_2015_transform.py", "mts_to_tables.py"):
+        files[f"mts/aws/glue/mts_load/{name}"] = (HERE.parent / "mts_load" / name).read_bytes()
     for package_name in ("mts", "mts/aws", "mts/aws/glue", "mts/aws/glue/mts_load"):
         files[f"{package_name}/__init__.py"] = b""
     files[f"{DIST_INFO}/METADATA"] = b"Metadata-Version: 2.1\nName: mts-glue-download\nVersion: 1.0\n"

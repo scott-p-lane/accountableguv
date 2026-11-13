@@ -24,6 +24,11 @@ Parameters:
     Type: String
     Description: Uploaded mts_to_tables.py key; use a versioned or content-addressed key.
     AllowedPattern: '[A-Za-z0-9!_./()=-]+\.py'
+  ArchiveTransformObjectKey:
+    Type: String
+    Default: ''
+    Description: Uploaded mts_pre_march_2015_transform.py key in GlueScriptBucketName, required to transform archive reports.
+    AllowedPattern: '([A-Za-z0-9!_./()=-]+/)?mts_pre_march_2015_transform\.py|^$'
   WorkerCount:
     Type: Number
     Default: 2
@@ -57,9 +62,38 @@ Parameters:
     MinValue: 1
     MaxValue: 900
 
+  MtsCodeBucketName:
+    Type: String
+    Default: ''
+    MaxLength: 63
+    Description: Existing S3 bucket in this region containing the packaged MTS Lambda ZIP.
+  MtsCodeObjectKey:
+    Type: String
+    Default: ''
+    Description: Object key printed by package_lambda.py; upload the ZIP to this key before deployment.
+  MtsScheduleExpression:
+    Type: String
+    Default: cron(0 18 20 * ? *)
+    Description: Monthly UTC schedule (default 18:00 UTC on the 20th, after the normal MTS release).
+  MtsScheduleState:
+    Type: String
+    Default: ENABLED
+    AllowedValues: [ENABLED, DISABLED]
+    Description: Enable or disable automatic MTS downloads.
+
+Rules:
+  MonthlyCodeLocation:
+    Assertions:
+      - Assert: !Or
+          - !And [!Equals [!Ref MtsCodeBucketName, ''], !Equals [!Ref MtsCodeObjectKey, '']]
+          - !And [!Not [!Equals [!Ref MtsCodeBucketName, '']], !Not [!Equals [!Ref MtsCodeObjectKey, '']]]
+        AssertDescription: Supply both monthly Lambda code parameters or leave both empty.
+
 Conditions:
+  EnableMtsMonthlyDownload: !Not [!Equals [!Ref MtsCodeObjectKey, '']]
   UseDefaultFeedsBucket: !Equals [!Ref FeedsBucketName, '']
   EnableMtsExport: !Not [!Equals [!Ref ExportScriptObjectKey, '']]
+  IncludeArchiveTransform: !Not [!Equals [!Ref ArchiveTransformObjectKey, '']]
 
 Resources:
   AthenaResultsBucket:
@@ -264,7 +298,12 @@ Resources:
               - Sid: ReadJobScript
                 Effect: Allow
                 Action: s3:GetObject
-                Resource: !Sub 'arn:${AWS::Partition}:s3:::${GlueScriptBucketName}/${GlueScriptObjectKey}'
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:s3:::${GlueScriptBucketName}/${GlueScriptObjectKey}'
+                  - !If
+                    - IncludeArchiveTransform
+                    - !Sub 'arn:${AWS::Partition}:s3:::${GlueScriptBucketName}/${ArchiveTransformObjectKey}'
+                    - !Ref 'AWS::NoValue'
               - Sid: DiscoverTableBucket
                 Effect: Allow
                 Action: [s3tables:GetTableBucket, s3tables:ListNamespaces]
@@ -328,6 +367,10 @@ Resources:
         '--enable-metrics': 'true'
         '--job-language': python
       NonOverridableArguments:
+        '--extra-py-files': !If
+          - IncludeArchiveTransform
+          - !Sub 's3://${GlueScriptBucketName}/${ArchiveTransformObjectKey}'
+          - !Ref 'AWS::NoValue'
         '--feeds_bucket': !If
           - UseDefaultFeedsBucket
           - !Sub 'acctguv-feeds-${AWS::Region}'
@@ -439,7 +482,187 @@ Resources:
         '--job-bookmark-option': job-bookmark-disable
         '--custom-logGroup-prefix': !Sub '/aws-glue/${AWS::StackName}/mts-export'
 
+  MtsDownloadRole:
+    Type: AWS::IAM::Role
+    Condition: EnableMtsMonthlyDownload
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: MtsDownload
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !If
+                  - UseDefaultFeedsBucket
+                  - !Sub 'arn:${AWS::Partition}:s3:::acctguv-feeds-${AWS::Region}'
+                  - !Sub 'arn:${AWS::Partition}:s3:::${FeedsBucketName}'
+                Condition:
+                  StringLike:
+                    s3:prefix: 'mts/*'
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject]
+                Resource: !If
+                  - UseDefaultFeedsBucket
+                  - !Sub 'arn:${AWS::Partition}:s3:::acctguv-feeds-${AWS::Region}/mts/*'
+                  - !Sub 'arn:${AWS::Partition}:s3:::${FeedsBucketName}/mts/*'
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${AWS::StackName}-mts-download:*'
+
+  MtsDownloadLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: EnableMtsMonthlyDownload
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AWS::StackName}-mts-download'
+      RetentionInDays: 30
+
+  MtsDownloadFunction:
+    Type: AWS::Lambda::Function
+    Condition: EnableMtsMonthlyDownload
+    DependsOn: MtsDownloadLogGroup
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-mts-download'
+      Description: Stage the latest Treasury MTS API report under its report month.
+      Runtime: python3.13
+      Handler: mts_feeds_monthly_download.lambda_handler
+      Role: !GetAtt MtsDownloadRole.Arn
+      Timeout: 300
+      MemorySize: 512
+      Environment:
+        Variables:
+          STAGING_BUCKET_NAME: !If
+            - UseDefaultFeedsBucket
+            - !Sub 'acctguv-feeds-${AWS::Region}'
+            - !Ref FeedsBucketName
+      Code:
+        S3Bucket: !Ref MtsCodeBucketName
+        S3Key: !Ref MtsCodeObjectKey
+
+  MtsDownloadAsyncConfig:
+    Type: AWS::Lambda::EventInvokeConfig
+    Condition: EnableMtsMonthlyDownload
+    Properties:
+      FunctionName: !Ref MtsDownloadFunction
+      Qualifier: '$LATEST'
+      MaximumEventAgeInSeconds: 21600
+      MaximumRetryAttempts: 2
+
+  MtsPipelineRole:
+    Type: AWS::IAM::Role
+    Condition: EnableMtsMonthlyDownload
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DownloadAndLoadMts
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt MtsDownloadFunction.Arn
+              - Effect: Allow
+                Action: [glue:StartJobRun, glue:GetJobRun, glue:GetJobRuns, glue:BatchStopJobRun]
+                Resource: !Sub 'arn:${AWS::Partition}:glue:${AWS::Region}:${AWS::AccountId}:job/${MtsGlueJob}'
+
+  MtsPipeline:
+    Type: AWS::StepFunctions::StateMachine
+    Condition: EnableMtsMonthlyDownload
+    Properties:
+      StateMachineType: STANDARD
+      RoleArn: !GetAtt MtsPipelineRole.Arn
+      Definition:
+        Comment: Download the report, then load only its month and wait for Glue success.
+        StartAt: DownloadMts
+        States:
+          DownloadMts:
+            Type: Task
+            Resource: !Sub 'arn:${AWS::Partition}:states:::lambda:invoke'
+            Parameters:
+              FunctionName: !GetAtt MtsDownloadFunction.Arn
+              Payload: {}
+            OutputPath: $.Payload
+            Retry:
+              - ErrorEquals: [Lambda.ServiceException, Lambda.AWSLambdaException, Lambda.SdkClientException, Lambda.TooManyRequestsException]
+                IntervalSeconds: 2
+                BackoffRate: 2
+                MaxAttempts: 3
+              - ErrorEquals: [States.TaskFailed]
+                IntervalSeconds: 60
+                BackoffRate: 2
+                MaxAttempts: 2
+            Next: LoadMts
+          LoadMts:
+            Type: Task
+            Resource: !Sub 'arn:${AWS::Partition}:states:::glue:startJobRun.sync'
+            Parameters:
+              JobName: !Ref MtsGlueJob
+              Arguments:
+                '--base_prefix.$': $.prefix
+            End: true
+
+  MtsMonthlyPipelineRole:
+    Type: AWS::IAM::Role
+    Condition: EnableMtsMonthlyDownload
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StartMtsPipeline
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: states:StartExecution
+                Resource: !Ref MtsPipeline
+
+  MtsMonthlyRule:
+    Type: AWS::Events::Rule
+    Condition: EnableMtsMonthlyDownload
+    Properties:
+      Name: !Sub '${AWS::StackName}-mts-monthly'
+      Description: Download the latest MTS report and load it with Glue after success.
+      ScheduleExpression: !Ref MtsScheduleExpression
+      State: !Ref MtsScheduleState
+      Targets:
+        - Id: MtsDownload
+          Arn: !Ref MtsPipeline
+          RoleArn: !GetAtt MtsMonthlyPipelineRole.Arn
+          Input: '{}'
+          RetryPolicy:
+            MaximumEventAgeInSeconds: 86400
+            MaximumRetryAttempts: 3
+
 Outputs:
+  MtsPipelineArn:
+    Condition: EnableMtsMonthlyDownload
+    Description: Scheduled download/load workflow; invoke this instead of Lambda for a manual end-to-end run.
+    Value: !Ref MtsPipeline
+  MtsDownloadFunctionName:
+    Condition: EnableMtsMonthlyDownload
+    Description: Function to invoke manually with an empty JSON event.
+    Value: !Ref MtsDownloadFunction
+  MtsDownloadFunctionArn:
+    Condition: EnableMtsMonthlyDownload
+    Value: !GetAtt MtsDownloadFunction.Arn
   AthenaWorkGroupName:
     Value: !Ref MtsAthenaWorkGroup
   AthenaResultsBucketName:

@@ -14,6 +14,9 @@ account-wide Glue Data Catalog/Lake Formation integration.
 
 ## Deploy from the AWS console
 
+To upload both loader files and deploy the stack from PowerShell, use the
+[`deploy_mts_glue_load.ps1` instructions](../glue/mts_load/README-mts_load.md#deploy-with-powershell).
+
 1. Use the same account and region as your existing feeds bucket, in a region
    supporting S3 Tables and Glue 5.0.
 2. Upload [`mts_to_tables.py`](../../glue/mts_load/mts_to_tables.py) as a **plain
@@ -39,6 +42,7 @@ account-wide Glue Data Catalog/Lake Formation integration.
    | `MtsNamespace` | Defaults to `silver_mts`. |
    | `GlueScriptBucketName` | Bucket containing the uploaded Python file. |
    | `GlueScriptObjectKey` | Exact uploaded script key, without `s3://` or bucket name. |
+   | `ArchiveTransformObjectKey` | Uploaded `mts_pre_march_2015_transform.py` key in the same script bucket. Set this to load raw archive reports. |
    | `WorkerCount` | Defaults to two G.1X workers. |
    | `GlueTimeoutMinutes` | Defaults to 30; increase for long backfills (maximum 1,440). |
    | `AthenaQueryScanLimitBytes` | Defaults to 1,073,741,824 bytes (1 GiB) scanned per query. |
@@ -75,6 +79,27 @@ existing parameter values. The update adds the export job, role, and log groups
 without replacing the table bucket, namespace, ingestion job, or Athena resources.
 See [export deployment and operation](EXPORT.md). Leaving the new key empty
 keeps existing deployments working without an export-script upload.
+
+## Scheduled monthly download and load
+
+Build and upload the [monthly Lambda ZIP](../lambda/mts_download/README-mts_download_lambda.md#deployment-and-schedule).
+Update the lakehouse stack with `MtsCodeBucketName` and `MtsCodeObjectKey`
+to enable the workflow resources. The schedule defaults to the 20th of
+each month at 18:00 UTC. Set `MtsScheduleExpression` to change the time or
+`MtsScheduleState=DISABLED` to pause scheduled runs.
+
+If the shared feeds stack currently runs the schedule, deploy the lakehouse
+workflow with its schedule disabled first. After any active run in the
+feeds stack finishes, update that stack with the new bucket-only template.
+Once that update completes, enable the lakehouse schedule. If the old
+schedule was paused, keep the lakehouse schedule disabled. Carry over any
+custom schedule expression when updating the lakehouse stack.
+
+For a manual end-to-end run, start the Step Functions state machine from
+the `MtsPipelineArn` output with input `{}`. It invokes Lambda and, after a
+successful download, passes the report-month prefix to this stack's Glue
+loader. The workflow waits for Glue to finish. Review the execution history
+and Glue logs if a run fails.
 
 ## Load a report or a range of feeds
 

@@ -1,4 +1,4 @@
-"""Convert Treasury STAR fixed-width archive reports to monthly MTS payloads."""
+"""Convert Treasury STAR fixed-width archive reports for the MTS loader."""
 
 from collections import Counter, defaultdict
 from calendar import month_abbr, month_name
@@ -14,7 +14,7 @@ FIELD = re.compile(r"\S(?:[^\t\r\n]*?\S)?(?= {2,}|\t|\s*$)")
 NOTES = re.compile(
     r"^\s*(?:[0-9-]?REPORT ID:|USER ID\s*:|DATE:|FOOTNOTES?:|\d+/\s{2,}[A-Za-z]|"
     r"Note:\s+Details|STAR - TREASURY FINANCIAL DATABASE|Daily Treasury Statement \(Available|"
-    r"PAGE\s+\d+\(\d+\)\s*$)", re.I,
+    r"PAGE\s+\d+\(\d+\)\s*$|MONTHLY TREASURY STATEMENT of Receipts and Outlays)", re.I,
 )
 MONTHS = {name.upper(): f"{short.lower()}_rcpt_outly_amt"
           for name, short in zip(month_name[1:], month_abbr[1:])}
@@ -227,6 +227,8 @@ def merge_rows(sections, report_date, table, schema):
         raise ValueError(f"Table {table} contains no published amounts")
     if table == 1:
         assign_table_1_sequences(rows, fiscal_year, fiscal_month)
+    if table == 9:
+        assign_table_9_sequences(rows)
     return rows
 
 
@@ -245,6 +247,34 @@ def assign_table_1_sequences(rows, fiscal_year, fiscal_month):
         if fiscal_group is None or position is None:
             raise ValueError(f"Unexpected Table 1 row on source line {row['src_line_nbr']}: {label}")
         row.update(sequence_level_nbr="2", sequence_number_cd=f"{fiscal_group}.{position}")
+
+
+def assign_table_9_sequences(rows):
+    sections = {"NET RECEIPTS": "1", "RECEIPTS": "1", "NET OUTLAYS": "2"}
+    social_insurance_details = {
+        "EMPLOYMENT AND GENERAL RETIREMENT": 1,
+        "EMPLOYMENT TAXES AND CONTRIBUTIONS": 1,
+        "UNEMPLOYMENT INSURANCE": 2,
+        "OTHER RETIREMENT": 3,
+        "OTHER RETIREMENT CONTRIBUTIONS": 3,
+    }
+    section = None
+    position = 0
+    for row in rows:
+        label = row["classification_desc"].upper()
+        if label in sections:
+            section = code = sections[label]
+            position = 0
+        elif section is None:
+            raise ValueError(f"Table 9 row before section heading on source line {row['src_line_nbr']}")
+        elif section == "1" and label in social_insurance_details:
+            code = f"1.3.{social_insurance_details[label]}"
+        else:
+            position += 1
+            code = f"{section}.{position}"
+        record_type = "SL" if label in sections or label == "TOTAL" else {"1": "RSG", "2": "F"}[section]
+        row.update(sequence_level_nbr=str(code.count(".") + 1), sequence_number_cd=code,
+                   record_type_cd=record_type)
 
 
 def display_label(table, label, fiscal_year):

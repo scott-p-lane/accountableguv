@@ -8,22 +8,20 @@ calendar report period, never the download date or fiscal year.
 For an August 2026 report downloaded in September, the staging bucket receives:
 
 ```text
-mts/2026/08/mts_table_1.json
+mts/2026/08/raw/mts_table_1/page-01-<sha256>.json
 ...
-mts/2026/08/mts_table_9.json
+mts/2026/08/raw/mts_table_9/page-01-<sha256>.json
 mts/2026/08/manifest.json
 ```
 
 S3 keys have no leading `/`; the logical prefix is `mts/{year}/{month}/`, with a
-four-digit year and two-digit month. Each table JSON includes `report_date`,
-`source_url`, all API `data` rows, and `meta` with labels, types, formats, and row
-count. Monetary values remain Treasury's original strings to preserve precision.
-The manifest lists all table keys, row counts, and SHA-256 hashes.
+four-digit year and two-digit month. Each page contains the exact response
+bytes received from Treasury. The manifest lists page keys, source URLs, and
+SHA-256 hashes. The Glue loader combines the pages and converts row values.
 
-All tables are validated before uploading. The manifest is written last; consumers
-should verify its hashes before processing, since multiple S3 objects are not an
-atomic transaction. Repeat runs skip matching objects. Corrections replace the
-same keys, producing new versions under the bucket's existing versioning policy.
+The downloader checks report dates and pagination completeness before uploading.
+It writes the manifest last and skips matching objects on reruns. Corrections
+produce new raw object keys, then update the manifest to reference them.
 
 The function expects the previous calendar month's report. An absent or stale
 release raises an error rather than silently storing an older month's data. This
@@ -33,20 +31,14 @@ an explicit date range as described below.
 
 ## Deployment and schedule
 
-To run Glue after a successful scheduled download, set `MtsGlueJobName` in
-[`feeds_staging_iac.yaml`](../../../../aws_shared/for_feed_staging/feeds_staging_iac.yaml)
-to the lakehouse stack's `GlueJobName` output. This routes scheduled runs through
-Step Functions, which waits for the download, passes the returned month prefix
-to Glue, and waits for the load to succeed. Manual Lambda invocations still
-download only. See the [workflow setup and retry behavior](../../../../aws_shared/for_feed_staging/README-feeds_staging_iac_.md#automatically-load-downloaded-mts-reports).
-Lambda asynchronous retries described below apply to direct asynchronous
-invocations; the workflow manages retries for its synchronous invocations.
+The [lakehouse stack](../../mts_lakehouse/mts_lakehouse_iac.yaml) owns the
+scheduled workflow. Step Functions invokes Lambda synchronously and passes the
+returned month prefix as `--base_prefix` to the stack's Glue loader. The
+workflow succeeds after Glue succeeds. Direct Lambda invocations download only.
+The Lambda role writes under `mts/*` in the lakehouse's configured feeds bucket.
 
-The template `../../cloud-formation-templates/feeds_staging_iac.yaml` references
-a ZIP deployment package in S3. It creates an execution role limited to `mts/*`
-in the existing staging bucket, logs retained for 30 days, and an EventBridge monthly schedule.
-Update the **existing** staging stack using that template. Its bucket name and
-`FeedsBucket` logical ID have been preserved.
+For an existing schedule in the shared feeds stack, use the
+[lakehouse migration instructions](../../mts_lakehouse/README-lakehouse_for_mts_data.md#scheduled-monthly-download-and-load).
 
 From this directory, build the package (Python standard library only):
 
@@ -71,7 +63,7 @@ aws s3 cp ./build/mts_feeds_monthly_download_vYYYYMMDD.zip s3://YOUR_CODE_BUCKET
 ```
 
 When updating the existing stack in the CloudFormation console, upload
-`feeds_staging_iac.yaml` and supply:
+`mts_lakehouse_iac.yaml` and supply:
 
 - `MtsCodeBucketName`: the bucket where you uploaded the ZIP.
 - `MtsCodeObjectKey`: the full key printed by the packaging helper.
@@ -88,8 +80,7 @@ the following month, so the 20th provides time for normal publication. Change
 There is no immediate download on stack deployment. To test, invoke the function
 identified by `MtsDownloadFunctionName` in the Lambda console with the event `{}`.
 
-Transient HTTP failures are retried three times. EventBridge retries delivery
-failures, and Lambda retries asynchronous function errors twice within six hours.
+Transient HTTP failures are retried three times. EventBridge retries workflow delivery failures. Step Functions handles retries for scheduled Lambda calls. Direct asynchronous Lambda invocations retry function errors twice within six hours.
 Errors are available in CloudWatch Logs and the Lambda Errors metric. A release
 delayed beyond those retries requires a later manual invocation; the schedule
 does not automatically retry on following days.
@@ -109,8 +100,8 @@ python mts_feeds_monthly_download.py
 ```
 
 For a December 2025 report, the files are written to `test/data/mts/2025/12`,
-regardless of the current working directory. That folder contains nine table JSON
-files and `manifest.json`. Identical files are left unchanged. Downloaded test data
+regardless of the current working directory. That folder contains raw API pages
+and `manifest.json`. Identical files are left unchanged. Downloaded test data
 is ignored by Git.
 
 To use a different local data root (the script appends `mts/YYYY/MM`):

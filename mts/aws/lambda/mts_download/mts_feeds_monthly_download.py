@@ -1,4 +1,4 @@
-"""Download all nine MTS JSON tables to their report-month S3 prefix."""
+"""Download original Treasury MTS API responses to their report-month S3 prefix."""
 
 from datetime import date, datetime, timedelta, timezone
 from calendar import monthrange
@@ -9,6 +9,7 @@ import logging
 import os
 from pathlib import Path
 import sys
+from tempfile import NamedTemporaryFile
 import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -56,34 +57,34 @@ def latest_report_date(today):
     return report_date
 
 
-def fetch_table(table, report_date):
-    rows = []
+def fetch_table_pages(table, report_date):
+    pages = []
+    count = 0
     total = None
-    metadata = None
     source_url = f"{API_BASE}/{table}"
     for page in range(1, 21):
         query = urlencode({"filter": f"record_date:eq:{report_date.isoformat()}",
                            "page[size]": "1000", "page[number]": str(page)})
-        payload = json.loads(download(f"{source_url}?{query}"))
+        url = f"{source_url}?{query}"
+        body = download(url)
+        payload = json.loads(body)
         data, meta = payload["data"], payload["meta"]
         if total is None:
             total = int(meta["total-count"])
-            metadata = {key: meta[key] for key in ("labels", "dataTypes", "dataFormats") if key in meta}
         if total <= 0 or int(meta["total-count"]) != total:
             raise ValueError(f"Missing or changing report data for {table}")
         if not data or any(row.get("record_date") != report_date.isoformat() for row in data):
             raise ValueError(f"Invalid report dates or empty page in {table}")
-        rows.extend(data)
-        if len(rows) >= total:
-            if len(rows) != total:
+        pages.append((url, body))
+        count += len(data)
+        if count >= total:
+            if count != total:
                 raise ValueError(f"Unexpected row count for {table}")
-            return {"report_date": report_date.isoformat(), "source_url": source_url,
-                    "data": rows, "meta": {**metadata, "count": total}}
+            return pages
     raise ValueError(f"Pagination limit exceeded for {table}")
 
 
-def store_json(bucket, s3, key, payload, report_date):
-    body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+def store_object(bucket, s3, key, body, report_date):
     digest = hashlib.sha256(body).hexdigest()
     existing = s3.list_objects_v2(Bucket=bucket, Prefix=key, MaxKeys=1)
     if any(item["Key"] == key for item in existing.get("Contents", [])):
@@ -91,7 +92,8 @@ def store_json(bucket, s3, key, payload, report_date):
         if metadata.get("sha256") == digest:
             return "unchanged", digest
     s3.put_object(
-        Bucket=bucket, Key=key, Body=body, ContentType="application/json",
+        Bucket=bucket, Key=key, Body=body,
+        ContentType="text/plain" if key.endswith(".txt") else "application/json",
         ServerSideEncryption="AES256",
         Metadata={"report-date": report_date.isoformat(), "sha256": digest},
     )
@@ -116,31 +118,37 @@ def report_objects(today, report_date=None, *, base_prefix="mts"):
     if report_date is None:
         report_date = latest_report_date(today)
     # Validate every table before starting uploads, preventing incomplete API downloads.
-    tables = {table: fetch_table(table, report_date) for table in TABLES}
-    return build_report_objects(report_date, tables, base_prefix=base_prefix)
+    files = [(f"{table}/page-{page:02d}", ".json", url, body)
+             for table in TABLES
+             for page, (url, body) in enumerate(fetch_table_pages(table, report_date), 1)]
+    return build_report_objects(report_date, files, "treasury-fiscal-data-api", base_prefix=base_prefix)
 
 
-def build_report_objects(report_date, tables, *, base_prefix="mts"):
+def build_report_objects(report_date, raw_files, source_format, *, base_prefix="mts"):
     prefix = f"{base_prefix}/{report_date:%Y/%m}"
     files = []
     objects = []
-    for table, payload in tables.items():
-        key = f"{prefix}/{table}.json"
-        digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
-        objects.append((key, payload))
-        files.append({"key": key, "sha256": digest, "row_count": len(payload["data"])})
-    # Consumers can verify these hashes; this marker is updated only after all tables.
-    manifest = {"report_date": report_date.isoformat(), "files": files}
-    objects.append((f"{prefix}/manifest.json", manifest))
+    for name, extension, url, body in raw_files:
+        digest = hashlib.sha256(body).hexdigest()
+        key = f"{prefix}/raw/{name}-{digest}{extension}"
+        objects.append((key, body))
+        files.append({"key": key, "sha256": digest, "source_url": url})
+    # Publish only after the raw objects exist. Content-addressed keys keep
+    # a previous manifest readable during an interrupted or concurrent update.
+    manifest = {"report_date": report_date.isoformat(), "format": source_format, "files": files}
+    body = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    objects.append((f"{prefix}/manifest.json", body))
     return report_date, prefix, objects
 
 
 def store_latest(bucket, s3, today, report_date=None, *, prepare_report=report_objects):
     report_date, prefix, objects = prepare_report(today, report_date)
-    for key, payload in objects:
-        status, _ = store_json(bucket, s3, key, payload, report_date)
+    changed = False
+    for key, body in objects:
+        status, _ = store_object(bucket, s3, key, body, report_date)
+        changed |= status == "stored"
         LOGGER.info("MTS object %s: %s", key, status)
-    result = {"status": status, "bucket": bucket, "prefix": prefix,
+    result = {"status": "stored" if changed else "unchanged", "bucket": bucket, "prefix": prefix,
               "report_date": report_date.isoformat(), "table_count": len(TABLES)}
     LOGGER.info("MTS result: %s", json.dumps(result))
     return result
@@ -150,12 +158,18 @@ def store_local(output_dir, today, report_date=None, *, prepare_report=report_ob
     report_date, prefix, objects = prepare_report(today, report_date)
     output_dir = Path(output_dir).resolve()
     changed = False
-    for key, payload in objects:
+    for key, body in objects:
         destination = output_dir.joinpath(*key.split("/"))
-        body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
         destination.parent.mkdir(parents=True, exist_ok=True)
         if not destination.exists() or destination.read_bytes() != body:
-            destination.write_bytes(body)
+            # Readers should see either the previous manifest or a complete new one.
+            with NamedTemporaryFile(dir=destination.parent, delete=False) as temporary:
+                temporary_path = Path(temporary.name)
+            try:
+                temporary_path.write_bytes(body)
+                temporary_path.replace(destination)
+            finally:
+                temporary_path.unlink(missing_ok=True)
             changed = True
         LOGGER.info("MTS file: %s", destination)
     return {"status": "stored" if changed else "unchanged",
@@ -172,7 +186,7 @@ def lambda_handler(event, context):
     )
 
 
-def main(argv=None, *, prepare_report=report_objects, archive_bounds=None, description=__doc__):
+def main(argv=None, *, prepare_report=report_objects, report_bounds=None, description=__doc__):
     parser = argparse.ArgumentParser(description=description)
     destination = parser.add_mutually_exclusive_group()
     destination.add_argument("--bucket", help="Explicitly upload to this existing S3 bucket instead of local files")
@@ -188,17 +202,16 @@ def main(argv=None, *, prepare_report=report_objects, archive_bounds=None, descr
     dates = None
     if (args.start_date is None) != (args.end_date is None):
         parser.error("--start-date and --end-date must be supplied together")
-    if archive_bounds and args.start_date is None:
-        parser.error("Supply --start-date and --end-date for an archive backfill")
+    if report_bounds and args.start_date is None:
+        parser.error("Supply --start-date and --end-date for a bounded backfill")
     if args.start_date is not None:
         if args.start_date > args.end_date:
             parser.error("--start-date must be on or before --end-date")
         dates = list(report_dates_between(args.start_date, args.end_date))
         if not dates:
             parser.error("The date range must include at least one month-end report date")
-        if archive_bounds and (dates[0] < archive_bounds[0] or dates[-1] > archive_bounds[1]):
-            parser.error(f"Supported archive report dates are {archive_bounds[0]} through "
-                         f"{archive_bounds[1]}.")
+        if report_bounds and (dates[0] < report_bounds[0] or dates[-1] > report_bounds[1]):
+            parser.error(f"Supported report dates are {report_bounds[0]} through {report_bounds[1]}.")
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     today = datetime.now(timezone.utc).date()
     if not args.bucket:

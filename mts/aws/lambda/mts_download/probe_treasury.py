@@ -1,13 +1,14 @@
 """Read-only Treasury endpoint check; makes no AWS calls."""
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
+import json
 
-from mts_feeds_monthly_download import fetch_table, latest_report_date
+from mts_feeds_monthly_download import fetch_table_pages, latest_report_date
 
 
 def probe(number):
-    payload = fetch_table(f"mts_table_{number}", REPORT_DATE)
-    return number, payload["report_date"], len(payload["data"])
+    pages = fetch_table_pages(f"mts_table_{number}", REPORT_DATE)
+    return number, REPORT_DATE.isoformat(), sum(len(json.loads(body)["data"]) for _, body in pages)
 
 
 if __name__ == "__main__":

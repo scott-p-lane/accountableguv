@@ -71,6 +71,104 @@ class LoadTests(unittest.TestCase):
         self.assertNotIn("VersionId", self.s3.requests[0])
         self.assertEqual(self.s3.requests[1]["VersionId"], "table-version")
 
+    def test_classification_descriptions_normalize_across_tables(self):
+        examples = (
+            ("Receipts", "Receipts"),
+            ("RECEIPTS", "Receipts"),
+            ("total -- SOCIAL INSURANCE AND RETIREMENT RECEIPTS",
+             "Total -- Social Insurance and Retirement Receipts"),
+            ("DEBT HELD BY THE PUBLIC", "Debt Held by the Public"),
+            ("fy 2026", "FY 2026"),
+            ("YEAR-TO-DATE", "Year-to-Date"),
+            ("GOVERNMENT'S RECEIPTS", "Government's Receipts"),
+            ("null", None),
+            (None, None),
+        )
+        for table, (value, _) in zip(loader.TABLES, examples):
+            self.payloads[table]["data"][0].update(
+                classification_desc=value, classification_id="MixedCase001")
+        self.save()
+        _, _, tables = self.load()
+        for table, (_, expected) in zip(loader.TABLES, examples):
+            with self.subTest(table=table):
+                row = tables[table][0]
+                self.assertEqual(row["classification_desc"], expected)
+                self.assertEqual(row["classification_id"], "MixedCase001")
+                self.assertEqual(row["transform_version"], "4")
+
+    def test_loads_raw_api_pages_with_per_page_lineage(self):
+        files = []
+        for table, payload in self.payloads.items():
+            page_count = 2 if table == "mts_table_1" else 1
+            for page in range(1, page_count + 1):
+                row = dict(payload["data"][0], classification_desc="RECEIPTS")
+                raw = json.dumps({"data": [row], "meta": {
+                    "total-count": page_count, "dataTypes": loader.source_types(table)}}).encode()
+                digest = hashlib.sha256(raw).hexdigest()
+                key = f"mts/2026/08/raw/{table}/page-{page:02d}-{digest}.json"
+                self.s3.objects[key] = raw
+                files.append({"key": key, "sha256": digest, "source_url": f"https://example.test/{page}"})
+        self.manifest.update(format="treasury-fiscal-data-api", files=files)
+        self.s3.objects[self.key] = json.dumps(self.manifest).encode()
+        _, _, loaded = self.load()
+        self.assertEqual(set(loaded), set(loader.TABLES))
+        self.assertEqual([row["classification_desc"] for row in loaded["mts_table_1"]],
+                         ["Receipts", "Receipts"])
+        self.assertEqual([row["source_key"] for row in loaded["mts_table_1"]],
+                         [entry["key"] for entry in files[:2]])
+        self.manifest["files"].pop(1)
+        self.s3.objects[self.key] = json.dumps(self.manifest).encode()
+        with self.assertRaisesRegex(ValueError, "missing tables or rows"):
+            self.load()
+
+    def test_loads_raw_archive_with_shared_text_lineage(self):
+        import mts_pre_march_2015_transform
+
+        raw = b"original Treasury text\r\n"
+        digest = hashlib.sha256(raw).hexdigest()
+        url = "https://example.test/mts0814.txt"
+        key = f"mts/2014/08/raw/mts0814-{digest}.txt"
+        self.s3.objects[key] = raw
+        self.key = "mts/2014/08/manifest.json"
+        self.s3.objects[self.key] = json.dumps({
+            "format": "treasury-star-text", "report_date": "2014-08-31",
+            "files": [{"key": key, "sha256": digest, "source_url": url}],
+        }).encode()
+        for payload in self.payloads.values():
+            payload["data"][0].update(record_date="2014-08-31", sequence_number_cd="1.3.1")
+        with patch.object(mts_pre_march_2015_transform, "transform_report",
+                          return_value=self.payloads) as transform:
+            _, _, loaded = self.load()
+        transform.assert_called_once_with(raw, date(2014, 8, 31), url, loader.source_types)
+        self.assertEqual(loaded["mts_table_9"][0]["sequence_number_cd"], "1.3.1")
+        self.assertTrue(all(rows[0]["source_key"] == key for rows in loaded.values()))
+
+    def test_legacy_archive_table_9_gets_api_compatible_filter_fields(self):
+        payload = self.payloads["mts_table_9"]
+        payload["meta"]["archive"] = {"format": "treasury-star-text"}
+        template = payload["data"][0]
+        expected = [
+            ("Net Receipts", "1", "1", "SL"),
+            ("INDIVIDUAL INCOME TAXES", "1.1", "2", "RSG"),
+            ("CORPORATION INCOME TAXES", "1.2", "2", "RSG"),
+            ("SOCIAL INSURANCE TAXES AND CONTRIBUTIONS:", "1.3", "2", "RSG"),
+            ("EMPLOYMENT TAXES AND CONTRIBUTIONS", "1.3.1", "3", "RSG"),
+            ("TOTAL", "1.4", "2", "SL"),
+            ("NET OUTLAYS", "2", "1", "SL"),
+            ("NATIONAL DEFENSE", "2.1", "2", "F"),
+            ("TOTAL", "2.2", "2", "SL"),
+        ]
+        payload["data"] = [dict(template, classification_desc=label, sequence_number_cd=None,
+                                sequence_level_nbr=None, record_type_cd=None)
+                           for label, _, _, _ in expected]
+        payload["meta"]["count"] = len(expected)
+        self.manifest["files"][-1]["row_count"] = len(expected)
+        self.save()
+        _, _, tables = self.load()
+        self.assertEqual([(row["sequence_number_cd"], row["sequence_level_nbr"], row["record_type_cd"])
+                          for row in tables["mts_table_9"]],
+                         [fields[1:] for fields in expected])
+
     def test_hash_mismatch_rejects_replaced_source(self):
         self.s3.objects[self.manifest["files"][-1]["key"]] += b" "
         with self.assertRaisesRegex(ValueError, "SHA-256 mismatch"):

@@ -17,7 +17,7 @@ import sys
 LOGGER = logging.getLogger(__name__)
 TABLES = tuple(f"mts_table_{number}" for number in range(1, 10))
 MAX_OBJECT_BYTES = 32 * 1024 * 1024
-TRANSFORM_VERSION = "1"
+TRANSFORM_VERSION = "4"
 COMMON_TYPES = {
     **dict.fromkeys(("classification_desc", "classification_id", "data_type_cd",
                      "line_code_nbr", "parent_id", "print_order_nbr", "record_type_cd",
@@ -51,6 +51,21 @@ LINEAGE_TYPES = {
 
 def source_types(table):
     return {**COMMON_TYPES, **dict.fromkeys(CURRENCY_FIELDS[table].split(), "CURRENCY")}
+
+
+def normalize_classification(value):
+    if value is None:
+        return None
+
+    def title_word(match):
+        word = match.group().lower()
+        if word == "fy":
+            return "FY"
+        if match.start() and word in {"and", "by", "the", "to"}:
+            return word
+        return word.capitalize()
+
+    return re.sub(r"\w+(?:['’]\w+)*", title_word, value)
 
 
 def convert_value(value, kind):
@@ -102,6 +117,92 @@ def read_object(s3, bucket, key, version_id=None):
     return data, response.get("VersionId", "")
 
 
+def read_verified_object(s3, bucket, item):
+    key = item["key"]
+    raw, version = read_object(s3, bucket, key, item.get("version_id"))
+    if hashlib.sha256(raw).hexdigest() != item["sha256"]:
+        raise ValueError(f"SHA-256 mismatch: {key}; source may have been corrected")
+    return raw, version
+
+
+def report_tables(s3, bucket, manifest, prefix, report_date):
+    """Yield source rows and lineage per table or API page."""
+    files = manifest["files"]
+    source_format = manifest.get("format")
+    if source_format == "treasury-star-text":
+        if len(files) != 1:
+            raise ValueError("Archive manifest must contain one Treasury text file")
+        item = files[0]
+        if not re.fullmatch(re.escape(f"{prefix}raw/mts{report_date:%m%y}-") + r"[0-9a-f]{64}\.txt",
+                            item["key"]):
+            raise ValueError("Invalid archive text object key")
+        raw, version = read_verified_object(s3, bucket, item)
+        from mts_pre_march_2015_transform import transform_report
+
+        try:
+            tables = transform_report(raw, report_date, item["source_url"], source_types)
+        except ValueError as error:
+            raise ValueError(f"{item['key']}: {error}") from error
+        for table, payload in tables.items():
+            yield table, payload["data"], item, version
+        return
+
+    if source_format == "treasury-fiscal-data-api":
+        page_pattern = re.compile(re.escape(prefix) + r"raw/(mts_table_[1-9])/page-(\d{2})-[0-9a-f]{64}\.json")
+        totals, counts, page_numbers = {}, {}, {}
+        for item in sorted(files, key=lambda entry: entry["key"]):
+            key = item["key"]
+            match = page_pattern.fullmatch(key)
+            if not match:
+                raise ValueError(f"Invalid Treasury API page key: {key}")
+            table, page = match[1], int(match[2])
+            if page != page_numbers.get(table, 0) + 1:
+                raise ValueError(f"Missing or duplicate Treasury API page: {key}")
+            page_numbers[table] = page
+            raw, version = read_verified_object(s3, bucket, item)
+            payload = json.loads(raw)
+            rows, meta = payload["data"], payload["meta"]
+            if meta["dataTypes"] != source_types(table):
+                raise ValueError(f"Source schema changed: {table}; review the schema before loading")
+            total = int(meta["total-count"])
+            if not isinstance(rows, list) or not rows or total <= 0 or totals.setdefault(table, total) != total:
+                raise ValueError(f"Row count mismatch or empty Treasury API page: {key}")
+            counts[table] = counts.get(table, 0) + len(rows)
+            yield table, rows, item, version
+        if set(totals) != set(TABLES) or counts != totals:
+            raise ValueError("Treasury API manifest is missing tables or rows")
+        return
+
+    if source_format is not None:
+        raise ValueError(f"Unsupported MTS manifest format: {source_format}")
+    expected_keys = {prefix + table + ".json" for table in TABLES}
+    if len(files) != len(TABLES) or {item["key"] for item in files} != expected_keys:
+        raise ValueError("Manifest must contain exactly the nine MTS table keys")
+    for item in files:
+        key = item["key"]
+        raw, version = read_verified_object(s3, bucket, item)
+        payload = json.loads(raw)
+        rows = payload["data"]
+        if (not isinstance(rows, list) or not rows or
+                type(item["row_count"]) is not int or len(rows) != item["row_count"] or
+                len(rows) != payload["meta"]["count"]):
+            raise ValueError(f"Row count mismatch or empty table: {key}")
+        if payload["report_date"] != report_date.isoformat():
+            raise ValueError(f"Report date mismatch: {key}")
+        table = key.rsplit("/", 1)[1].removesuffix(".json")
+        if payload["meta"]["dataTypes"] != source_types(table):
+            raise ValueError(f"Source schema changed: {table}; review the schema before loading")
+        if table == "mts_table_9" and payload["meta"].get("archive", {}).get("format") == "treasury-star-text":
+            from mts_pre_march_2015_transform import assign_table_9_sequences
+
+            # Older staged July 2003 JSON included the next page's heading.
+            rows = [row for row in rows if not (
+                report_date == date(2003, 7, 31)
+                and row["classification_desc"] == "ONTHLY TREASURY STATEMENT of Receipts and Outlays of the United")]
+            assign_table_9_sequences(rows)
+        yield table, rows, {**item, "source_url": payload["source_url"]}, version
+
+
 def load_report(s3, bucket, manifest_key):
     """Return typed rows for all nine tables, or fail before any table writes."""
     if not re.fullmatch(r"mts/\d{4}/\d{2}/manifest\.json", manifest_key):
@@ -112,48 +213,28 @@ def load_report(s3, bucket, manifest_key):
     prefix = f"mts/{report_date:%Y/%m}/"
     if manifest_key != prefix + "manifest.json":
         raise ValueError("Manifest path and report date disagree")
-    files = manifest["files"]
-    expected_keys = {prefix + table + ".json" for table in TABLES}
-    if len(files) != len(TABLES) or {item["key"] for item in files} != expected_keys:
-        raise ValueError("Manifest must contain exactly the nine MTS table keys")
     batch_id = hashlib.sha256(raw_manifest).hexdigest()
     loaded = {}
     ingested_at = datetime.now(timezone.utc)
-    for item in files:
-        key = item["key"]
-        raw, version = read_object(s3, bucket, key, item.get("version_id"))
-        digest = hashlib.sha256(raw).hexdigest()
-        if digest != item["sha256"]:
-            raise ValueError(f"SHA-256 mismatch: {key}; source may have been corrected")
-        payload = json.loads(raw)
-        rows = payload["data"]
-        if (not isinstance(rows, list) or not rows or
-                type(item["row_count"]) is not int or len(rows) != item["row_count"] or
-                len(rows) != payload["meta"]["count"]):
-            raise ValueError(f"Row count mismatch or empty table: {key}")
-        if payload["report_date"] != report_date.isoformat():
-            raise ValueError(f"Report date mismatch: {key}")
-        table = key.rsplit("/", 1)[1].removesuffix(".json")
+    for table, rows, item, version in report_tables(s3, bucket, manifest, prefix, report_date):
         types = source_types(table)
-        if payload["meta"]["dataTypes"] != types:
-            raise ValueError(f"Source schema changed: {table}; review the schema before loading")
         lineage = {
-            "source_bucket": bucket, "source_key": key, "source_version_id": version,
-            "source_sha256": digest, "source_url": payload["source_url"],
+            "source_bucket": bucket, "source_key": item["key"], "source_version_id": version,
+            "source_sha256": item["sha256"], "source_url": item["source_url"],
             "manifest_key": manifest_key, "manifest_version_id": manifest_version,
             "batch_id": batch_id, "transform_version": TRANSFORM_VERSION,
             "ingested_at": ingested_at,
         }
-        typed_rows = []
+        typed_rows = loaded.setdefault(table, [])
         for index, row in enumerate(rows):
             if set(row) != set(types) or row.get("record_date") != report_date.isoformat():
                 raise ValueError(f"Invalid columns or report date: {table} row {index}")
             try:
-                typed_rows.append({**{name: convert_value(row[name], kind)
-                                       for name, kind in types.items()}, **lineage})
+                typed = {name: convert_value(row[name], kind) for name, kind in types.items()}
+                typed["classification_desc"] = normalize_classification(typed["classification_desc"])
+                typed_rows.append({**typed, **lineage})
             except ValueError as error:
                 raise ValueError(f"{table} row {index}: {error}") from error
-        loaded[table] = typed_rows
     return report_date, batch_id, loaded
 
 

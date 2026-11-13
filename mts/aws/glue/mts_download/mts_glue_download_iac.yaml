@@ -8,7 +8,7 @@ Parameters:
     Description: Existing same-region S3 bucket holding the job script and wheel.
   CodePrefix:
     Type: String
-    Default: glue/mts-download/v1
+    Default: glue/mts_download/v1
     AllowedPattern: '[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*'
     Description: S3 prefix containing both deployment files.
   FeedsBucketName:

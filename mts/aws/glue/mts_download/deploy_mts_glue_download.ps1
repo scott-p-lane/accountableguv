@@ -8,6 +8,10 @@ param(
     [ValidateNotNullOrEmpty()]
     [string]$Region,
 
+    [Parameter(Mandatory)]
+    [ValidatePattern('\A[A-Za-z0-9][A-Za-z0-9._-]*\z')]
+    [string]$Version,
+
     [ValidatePattern('^[A-Za-z][A-Za-z0-9-]{0,127}$')]
     [string]$StackName = 'MTS-Bulk',
 
@@ -44,10 +48,8 @@ try {
         throw 'Could not build the MTS Glue wheel.'
     }
 
-    # Changing either artifact changes the job's S3 code location.
-    $scriptHash = (Get-FileHash -LiteralPath $jobScript).Hash.ToLowerInvariant()
-    $libraryHash = (Get-FileHash -LiteralPath $library).Hash.ToLowerInvariant()
-    $codePrefix = "glue/mts-download/$scriptHash/$libraryHash"
+    $versionFolder = if ($Version -match '\A[0-9]+\z') { "v$Version" } else { $Version }
+    $codePrefix = "glue/mts_download/$versionFolder"
     $codeUri = "s3://$CodeBucketName/$codePrefix"
 
     aws s3 cp $jobScript "$codeUri/download_mts_reports.py" @awsOptions

@@ -4,16 +4,42 @@
 JSON feeds into nine Iceberg tables in an S3 table bucket: `mts_table_1` through
 `mts_table_9`. It runs as an AWS Glue 5.0 Spark ETL job.
 
+## Deploy with PowerShell
+
+From the repository root, run this with the AWS CLI configured:
+
+```powershell
+./mts/aws/glue/mts_load/deploy_mts_glue_load.ps1 -Region us-east-2 -CodeBucketName 'your-existing-code-bucket' -Version 'v1.2.0-rc1'
+```
+
+The script uploads `mts_to_tables.py` and `mts_pre_march_2015_transform.py`
+to `glue/mts_load/v1.2.0-rc1/` and deploys the lakehouse stack with both S3 keys.
+Use a new version when either file changes. A version must start with a letter
+or digit and can also contain periods, underscores, and hyphens. A version
+containing only digits keeps the existing naming convention, so `1` uses
+`v1/`. The default stack name is
+`MTS-Lakehouse`. Use `-StackName` or `-Profile` if your deployment differs.
+
+For an existing stack, use its current `GlueScriptBucketName` as
+`-CodeBucketName`. The deployment retains existing values for the other
+stack parameters, including the export configuration. For a new stack, those
+parameters take the template defaults. See the lakehouse README for custom
+stack settings.
+
 ## Prerequisites
 
 - Deploy the [MTS lakehouse stack](../../mts_lakehouse/mts_lakehouse_iac.yaml).
   See the [lakehouse README](../../mts_lakehouse/README-lakehouse_for_mts_data.md)
   for deployment details. The stack creates the job, execution role, table bucket,
   namespace, and CloudWatch log groups.
-- Upload this directory's `mts_to_tables.py` as a plain Python file to the
+- For manual deployment, upload this directory's `mts_to_tables.py` to the
   same-region script bucket configured by `GlueScriptBucketName`. Set
   `GlueScriptObjectKey` to its exact object key. For updates, upload to a new
   immutable key and update that stack parameter.
+- For raw or previously staged archive reports, upload [`mts_pre_march_2015_transform.py`](mts_pre_march_2015_transform.py)
+  to the same script bucket. Keep the filename and use a versioned folder.
+  Set `ArchiveTransformObjectKey` to the full object key. The stack adds
+  the module to the Glue job's Python files.
 - Make sure the reports to load already exist in the configured feeds bucket.
   The [MTS downloader](../../lambda/mts_download/README-mts_download_lambda.md)
   produces the source feeds and manifests. This job does not download missing
@@ -28,11 +54,9 @@ outputs identify the input bucket and destinations. The default namespace is
 
 ## Choose the reports to load
 
-To load reports automatically after scheduled downloads, set `MtsGlueJobName`
-on the feeds staging stack to the lakehouse stack's `GlueJobName` output.
-The [feeds workflow instructions](../../../../aws_shared/for_feed_staging/README-feeds_staging_iac_.md#automatically-load-downloaded-mts-reports)
-explain deployment and monitoring. The workflow supplies the downloaded month's
-prefix and starts Glue only after the downloader succeeds.
+The lakehouse stack can run this job automatically after its scheduled download
+succeeds. The workflow passes the downloaded month's prefix to Glue.
+See [scheduled workflow setup](../../mts_lakehouse/README-lakehouse_for_mts_data.md#scheduled-monthly-download-and-load).
 
 Supply `--base_prefix` or both `--start_date` and `--end_date`. The prefix is
 bucket-relative and can end with a slash.
@@ -53,20 +77,33 @@ The job recursively lists the prefix, follows all listing pages, and selects
 are not selected directly. Missing months are skipped; finding no manifests is
 an error. An unexpected manifest location also causes an error.
 
-Each month must contain:
+The manifest identifies the source objects for the month. New downloads
+store the original Treasury bytes under `mts/YYYY/MM/raw/`. New archive
+manifests point to the nine transformed table JSON files in the month
+folder. Previously staged manifests may point to a STAR text file or to
+nine table JSON files. API manifests point to the original JSON pages for
+all nine tables.
 
-```text
-mts/YYYY/MM/
-  manifest.json
-  mts_table_1.json
-  ...
-  mts_table_9.json
-```
+The loader verifies source hashes, parses the archive text, and maps its
+amounts and sequence fields into the MTS schema. For API pages it validates
+the schema and page totals, then combines the rows for each table. It
+validates and converts source rows before writing the report. Each source
+object, including the manifest, is limited to 32 MiB.
 
-The manifest must reference exactly those nine table files. Before writing a
-report, the script validates hashes, row counts, report dates, source schemas,
-and typed values for all nine files. Each source object, including the manifest,
-is limited to 32 MiB.
+The loader normalizes `classification_desc` to title case across all nine
+tables. For example, `RECEIPTS` and `Receipts` both load as `Receipts`.
+Classification IDs retain their source values. After deploying the updated
+script, rerun the affected report months to normalize rows already in Iceberg.
+You can use the staged feeds for those runs.
+
+For Table 9, the loader derives API-compatible sequence numbers, sequence
+levels, and record types for raw STAR reports and previously staged STAR JSON.
+After deploying both loader files, rerun October 1997 through February 2015
+in batches to backfill the fields, then refresh exports and reports.
+
+Deploy this loader and its archive module before updating the bulk downloader
+or the scheduled Lambda. To regenerate the nine table JSON files for an
+archive month, redownload that month, then rerun the load.
 
 ## Run from the AWS console
 

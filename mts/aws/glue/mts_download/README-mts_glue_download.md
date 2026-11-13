@@ -1,9 +1,14 @@
 # Bulk Treasury MTS downloads in AWS Glue
 
-The on-demand job writes all nine Monthly Treasury Statement tables and a
-manifest per report month. It uses the Treasury text archive from October 1997
-through February 2015 and the Fiscal Data API from March 2015 onward. One run
-can span both sources.
+The on-demand job saves original Treasury responses and a manifest per report
+month. From October 1997 through February 2015 it keeps the original STAR
+text under `raw/` and writes nine transformed table JSON files in the month
+folder. The manifest points to the table files. From March 2015 onward the
+manifest points to the original Fiscal Data API pages. One run can span both
+sources.
+
+See the [STAR archive backfill instructions](README-mts_pre_march_2015.md)
+for the local Python command.
 
 ## Deploy
 
@@ -12,7 +17,7 @@ CLI available. Use the feeds stack's region and an existing code bucket in
 that region.
 
 ```powershell
-./mts/aws/glue/mts_download/deploy_mts_glue_download.ps1 -Region us-east-2 -CodeBucketName 'your-existing-code-bucket'
+./mts/aws/glue/mts_download/deploy_mts_glue_download.ps1 -Region us-east-2 -CodeBucketName 'your-existing-code-bucket' -Version 'v1.2.0-rc1'
 ```
 
 The default report location is `s3://acctguv-feeds-REGION/mts/`. If your
@@ -20,7 +25,11 @@ feeds stack uses a different bucket, pass `-FeedsBucketName BUCKET`. To
 authorize a second destination for individual runs, pass
 `-AlternateBucketName BUCKET` and optionally `-AlternateReportPrefix PREFIX`
 (defaults to `mts`). Pass `-Profile PROFILE` to select an AWS CLI profile.
-Rerun the script with the same options to deploy code updates.
+The script uploads the job script and wheel to `glue/mts_download/v1.2.0-rc1/`
+in the code bucket. A version must start with a letter or digit and can also
+contain periods, underscores, and hyphens. A version containing only digits
+keeps the existing naming convention, so `1` uses `v1/`. Use a new version
+when either artifact changes.
 
 The stack creates a Python 3.9 shell job and its execution role.
 [AWS Glue Python shell job documentation](https://docs.aws.amazon.com/glue/latest/dg/add-job-python.html)
@@ -51,8 +60,9 @@ aws glue start-job-run --region us-east-2 --job-name MTS-Bulk-mts-download --arg
   Completed months remain in S3. Rerunning the range skips writes for
   byte-identical objects.
 
-For the existing lakehouse loader, use the default feeds destination and
-the desired `mts`, `mts/YYYY`, or `mts/YYYY/MM` input prefix.
+Deploy the [updated lakehouse loader](../mts_load/README-mts_load.md) before
+running this downloader against the feeds bucket. Select the desired
+`mts`, `mts/YYYY`, or `mts/YYYY/MM` input prefix when loading.
 
 If a run exits with code 2, check the date arguments. Both start values
 must be set even when both end values are supplied. For example, set the
