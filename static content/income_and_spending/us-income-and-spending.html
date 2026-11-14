@@ -94,7 +94,7 @@
           aria-label="Table 1 summary and reconciliation dashboard" aria-describedby="table-1-help"></tableau-viz>
       </div>
     </section>
-        <section aria-labelledby="dashboards">
+    <section aria-labelledby="dashboards">
       <h2 id="dashboards">Dashboards</h2>
       <div class="dashboard-directory">
         <a class="dashboard-tile" href="us-net-income.html" aria-labelledby="net-income-title"
@@ -166,18 +166,25 @@
         accurate comparisons. For example, if we are only have data through July of the current fiscal year, then you
         should uncheck August and September. This will ensure that you are comparing values against the same months in
         prior fiscal years. </p>
-
+      <h3 id="Pre-2015 Data">Pre-2015 Data</h3>
+      <p>The treasury API and standards only support data from 2015 and forward. To report on trends from pre-2015, we
+        had to download published reports from the archive. These reports were "mostly compatible", but some
+        transformation was required to make them consistent with the 2015+ data. For example, in some tables we needed
+        to extrapolate and populate sequence number or class types that weren't part of those original reports. Some
+        other changes were more benign (changing case to allow for better matching of classifications).</p>
+      <p>All transformations are open-sourced and it believed that they have not resulted in any material difference the
+        reports. If you find otherwise, let me know ASAP!</p>
     </section>
 
 
   </main>
-    <section class="principle" aria-label="Guiding principle">
-      <blockquote>
-        <p>&ldquo;Money is only a tool. It will take you wherever you wish, but it will not replace you as the
-          driver.&rdquo;</p>
-        <p>&mdash; Ayn Rand</p>
-      </blockquote>
-    </section>
+  <section class="principle" aria-label="Guiding principle">
+    <blockquote>
+      <p>&ldquo;Money is only a tool. It will take you wherever you wish, but it will not replace you as the
+        driver.&rdquo;</p>
+      <p>&mdash; Ayn Rand</p>
+    </blockquote>
+  </section>
   <footer>AccountableGuv · US Income and Spending</footer>
 </body>
 
