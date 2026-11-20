@@ -4,6 +4,16 @@ Prepared November 6, 2026. Monthly files cover January 1977 through October
 2026, the latest completed calendar month. November and future months are not
 projected. CSV encoding is UTF-8, with a header and CRLF line endings.
 
+## 2026 midterm results
+
+As of November 20, 2026, reported results give Democrats majorities in both
+chambers of the incoming 120th Congress. Congressional terms begin January 3,
+2027, so January 2027 is the first month-end observation expected to reflect
+the Democratic House and Senate, with Republican Donald Trump as president.
+The latest completed month is October 2026, when Republicans controlled both
+chambers. [Reported results](https://www.cbsnews.com/live-updates/election-day-2026-midterms/)
+and [Twentieth Amendment](https://constitution.congress.gov/static/files/Literal_Print_of_Constitution_MCT_1.9.26.pdf).
+
 ## Files and grain
 
 - `data/political_control_monthly.csv`: combined monthly file with `year`, `month`,
@@ -42,8 +52,44 @@ snapshots is not an exact daily weighted average.
 
 ## Joining Treasury monthly data
 
-All monthly files have a unique `(year, month)` key and an ISO `year_month` key
-such as `1977-01`. Join using **calendar** year/month, not fiscal year with calendar
+From the repository root, load the combined CSV into `mts.party_control` in
+the local `mts` PostgreSQL database using Python 3 and `psql`:
+
+```powershell
+python mts/local_data/mts_load_to_postgres/load_party_control.py
+```
+
+The loader uses the same connection defaults as the local MTS import
+(`localhost:5432`, user `postgres`). Configure authentication through the
+PostgreSQL password file, or pass `--password`:
+
+```powershell
+python mts/local_data/mts_load_to_postgres/load_party_control.py --password 'your-password'
+```
+
+Use `--help` for connection, CSV, and executable
+overrides. Each run replaces the lookup rows in one transaction. The primary
+key guarantees one row per calendar month.
+
+The Python loader runs `load_party_control.sql`, which includes
+`create_party_control.sql`. To load the standard CSV directly with `psql`
+from the repository root, run:
+
+```powershell
+psql -X -h localhost -p 5432 -U postgres -d mts -v csv_dir="$((Resolve-Path 'political_control/data').Path)" -f mts/local_data/mts_load_to_postgres/load_party_control.sql
+```
+
+```sql
+SELECT m.*, p.president_name, p.president_party,
+       p.house_majority_party, p.senate_majority_party
+FROM mts.mts_table_1 AS m
+LEFT JOIN mts.party_control AS p
+  ON p.year = m.record_calendar_year
+ AND p.month = m.record_calendar_month;
+```
+
+All monthly files have a unique `(year, month)` key. The detailed monthly files
+also have an ISO `year_month` key such as `1977-01`. Join using **calendar** year/month, not fiscal year with calendar
 month. The existing MTS loader recognizes `record_calendar_year` and
 `record_calendar_month`; join these to `year` and `month` respectively (or their
 renamed counterparts in your destination table).
